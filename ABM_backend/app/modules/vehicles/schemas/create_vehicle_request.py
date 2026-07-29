@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from pydantic import BaseModel, Field, ConfigDict
 
 from app.enums.image_detail import ImageDetailType
@@ -41,8 +39,6 @@ class CreateVehicleRequest(BaseModel):
         extra="forbid",
     )
 
-    owner_id: UUID
-
     license_plate: str = Field(
         min_length=5,
         max_length=15,
@@ -67,6 +63,11 @@ class CreateVehicleRequest(BaseModel):
         default=None,
         ge=1900,
         le=2100,
+    )
+
+    insurance_policy: str | None = Field(
+        default=None,
+        max_length=50,
     )
 
     observations: str | None = Field(

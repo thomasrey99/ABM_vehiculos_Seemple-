@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "abm-vehiculos-completa-0001",
     "name": "ABM Vehículos API - Colección Completa",
-    "description": "Colección completa para probar el backend de gestión de vehículos: usuarios, vehículos, búsqueda por imagen (servicio de reconocimiento), seguridad (API Key) y casos negativos/validaciones.\n\nOrden sugerido de ejecución:\n1. Users > Create User\n2. Vehicles > Create Vehicle - Success (usa el userId generado)\n3. Búsqueda por Imagen > Search Vehicles By Image (adjuntá una imagen similar a la subida en el paso 2)\n4. El resto de las requests en cualquier orden.",
+    "description": "Colección completa para probar el backend de gestión de vehículos: vehículos, búsqueda por imagen (servicio de reconocimiento), seguridad (API Key) y casos negativos/validaciones.\n\nEl módulo de usuarios fue removido temporalmente del proyecto (se reincorporará más adelante), por lo que ya no requiere owner_id al crear un vehículo.\n\nOrden sugerido de ejecución:\n1. Vehicles > Create Vehicle - Success\n2. Búsqueda por Imagen > Search Vehicles By Image (adjuntá una imagen similar a la subida en el paso 1)\n3. El resto de las requests en cualquier orden.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -15,380 +15,11 @@
       "value": "Seemple2026"
     },
     {
-      "key": "userId",
-      "value": ""
-    },
-    {
-      "key": "secondUserId",
-      "value": ""
-    },
-    {
       "key": "vehicleId",
       "value": ""
     }
   ],
   "item": [
-    {
-      "name": "Users",
-      "item": [
-        {
-          "name": "Create User (Client)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "x-api-key",
-                "value": "{{apiKey}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/users",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"first_name\": \"Thomas\",\n  \"last_name\": \"Rey\",\n  \"email\": \"thomas@test.com\",\n  \"password\": \"Password123\",\n  \"role\": \"CLIENT\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 200/201', function () {",
-                  "  pm.expect([200,201]).to.include(pm.response.code);",
-                  "});",
-                  "let r = pm.response.json();",
-                  "pm.test('success true', function () { pm.expect(r.success).to.be.true; });",
-                  "if (r.data && r.data.id) { pm.collectionVariables.set('userId', r.data.id); }"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Create User (Admin)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "x-api-key",
-                "value": "{{apiKey}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/users",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"first_name\": \"Admin\",\n  \"last_name\": \"Principal\",\n  \"email\": \"admin@test.com\",\n  \"password\": \"Password123\",\n  \"role\": \"ADMIN\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "let r = pm.response.json();",
-                  "if (r.data && r.data.id) { pm.collectionVariables.set('secondUserId', r.data.id); }"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Create User - Email Duplicado (409)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "x-api-key",
-                "value": "{{apiKey}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/users",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"first_name\": \"Thomas\",\n  \"last_name\": \"Rey\",\n  \"email\": \"thomas@test.com\",\n  \"password\": \"Password123\",\n  \"role\": \"CLIENT\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 409 Conflict', function () { pm.response.to.have.status(409); });",
-                  "let r = pm.response.json();",
-                  "pm.test('error USER_ALREADY_EXISTS', function () { pm.expect(r.error).to.eql('USER_ALREADY_EXISTS'); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Create User - Validación (400)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "x-api-key",
-                "value": "{{apiKey}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/users",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"first_name\": \"A\",\n  \"last_name\": \"\",\n  \"email\": \"no-es-un-email\",\n  \"password\": \"123\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 400', function () { pm.response.to.have.status(400); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Get Users",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "x-api-key",
-                "value": "{{apiKey}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/users",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Get User By Id",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "x-api-key",
-                "value": "{{apiKey}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/users/{{userId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users",
-                "{{userId}}"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Get User By Id - Not Found (404)",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "x-api-key",
-                "value": "{{apiKey}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/users/00000000-0000-0000-0000-000000000000",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users",
-                "00000000-0000-0000-0000-000000000000"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Update User",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "x-api-key",
-                "value": "{{apiKey}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/users/{{userId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users",
-                "{{userId}}"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"observations_note\": null,\n  \"first_name\": \"Thomas Actualizado\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Delete User (secondUserId - Admin)",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "x-api-key",
-                "value": "{{apiKey}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/users/{{secondUserId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users",
-                "{{secondUserId}}"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
     {
       "name": "Vehicles",
       "item": [
@@ -417,7 +48,7 @@
                 {
                   "key": "request",
                   "type": "text",
-                  "value": "{\n  \"owner_id\": \"{{userId}}\",\n  \"license_plate\": \"AA123BB\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Corolla\",\n  \"color\": \"Blanco\",\n  \"year\": 2020,\n  \"observations\": \"Vehiculo de prueba\",\n  \"images\": [\n    {\n      \"filename\": \"frente.jpg\",\n      \"label\": \"FRONT\",\n      \"details\": [\n        {\n          \"detail_type\": \"SCRATCH\",\n          \"description\": \"Rayon leve en el paragolpes\"\n        }\n      ]\n    },\n    {\n      \"filename\": \"atras.jpg\",\n      \"label\": \"BACK\",\n      \"details\": []\n    }\n  ]\n}"
+                  "value": "{\n  \"license_plate\": \"AA123BB\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Corolla\",\n  \"color\": \"Blanco\",\n  \"year\": 2020,\n  \"insurance_policy\": \"POL-000123\",\n  \"observations\": \"Vehiculo de prueba\",\n  \"images\": [\n    {\n      \"filename\": \"frente.jpg\",\n      \"label\": \"FRONT\",\n      \"details\": [\n        {\n          \"detail_type\": \"SCRATCH\",\n          \"description\": \"Rayon leve en el paragolpes\"\n        }\n      ]\n    },\n    {\n      \"filename\": \"atras.jpg\",\n      \"label\": \"BACK\",\n      \"details\": []\n    }\n  ]\n}"
                 },
                 {
                   "key": "files",
@@ -481,7 +112,7 @@
                 {
                   "key": "request",
                   "type": "text",
-                  "value": "{\n  \"owner_id\": \"{{userId}}\",\n  \"license_plate\": \"AA123BB\",\n  \"brand\": \"Ford\",\n  \"model\": \"Focus\",\n  \"images\": [\n    { \"filename\": \"foto.jpg\", \"label\": \"FRONT\", \"details\": [] }\n  ]\n}"
+                  "value": "{\n  \"license_plate\": \"AA123BB\",\n  \"brand\": \"Ford\",\n  \"model\": \"Focus\",\n  \"images\": [\n    { \"filename\": \"foto.jpg\", \"label\": \"FRONT\", \"details\": [] }\n  ]\n}"
                 },
                 {
                   "key": "files",
@@ -497,52 +128,6 @@
               "script": {
                 "exec": [
                   "pm.test('Status 409', function () { pm.response.to.have.status(409); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Create Vehicle - Owner Inexistente (404)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "x-api-key",
-                "value": "{{apiKey}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/vehicles",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "vehicles"
-              ]
-            },
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "request",
-                  "type": "text",
-                  "value": "{\n  \"owner_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"license_plate\": \"ZZ999ZZ\",\n  \"brand\": \"Ford\",\n  \"model\": \"Focus\",\n  \"images\": [\n    { \"filename\": \"foto.jpg\", \"label\": \"FRONT\", \"details\": [] }\n  ]\n}"
-                },
-                {
-                  "key": "files",
-                  "type": "file",
-                  "src": []
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });"
                 ]
               }
             }
@@ -573,7 +158,7 @@
                 {
                   "key": "request",
                   "type": "text",
-                  "value": "{\n  \"owner_id\": \"{{userId}}\",\n  \"license_plate\": \"BB456CC\",\n  \"brand\": \"Fiat\",\n  \"model\": \"Cronos\",\n  \"images\": [\n    { \"filename\": \"no_existe.jpg\", \"label\": \"FRONT\", \"details\": [] }\n  ]\n}"
+                  "value": "{\n  \"license_plate\": \"BB456CC\",\n  \"brand\": \"Fiat\",\n  \"model\": \"Cronos\",\n  \"images\": [\n    { \"filename\": \"no_existe.jpg\", \"label\": \"FRONT\", \"details\": [] }\n  ]\n}"
                 },
                 {
                   "key": "files",
@@ -627,7 +212,7 @@
                 {
                   "key": "request",
                   "type": "text",
-                  "value": "{\n  \"owner_id\": \"{{userId}}\",\n  \"license_plate\": \"CC789DD\",\n  \"brand\": \"Renault\",\n  \"model\": \"Sandero\",\n  \"images\": []\n}"
+                  "value": "{\n  \"license_plate\": \"CC789DD\",\n  \"brand\": \"Renault\",\n  \"model\": \"Sandero\",\n  \"images\": []\n}"
                 }
               ]
             }
@@ -702,12 +287,80 @@
                 "exec": [
                   "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
                   "let r = pm.response.json();",
-                  "pm.test('trae owner embebido', function () { pm.expect(r.data.owner).to.not.be.undefined; });",
+                  "pm.test('trae insurance_policy', function () { pm.expect(r.data).to.have.property('insurance_policy'); });",
                   "pm.test('embedding_status presente en imagenes', function () {",
                   "  if (r.data.images && r.data.images.length > 0) {",
                   "    pm.expect(r.data.images[0]).to.have.property('embedding_status');",
                   "  }",
                   "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Vehicle By License Plate",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/patente/AA123BB",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "patente",
+                "AA123BB"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "let r = pm.response.json();",
+                  "pm.test('license_plate coincide', function () { pm.expect(r.data.license_plate).to.eql('AA123BB'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Vehicle By License Plate - Not Found (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/patente/ZZ000ZZ",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "patente",
+                "ZZ000ZZ"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });"
                 ]
               }
             }
@@ -933,32 +586,6 @@
               ],
               "path": [
                 "vehicles"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Get Users - Sin API Key (401)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/users",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users"
               ]
             }
           },

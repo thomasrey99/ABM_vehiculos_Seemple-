@@ -20,24 +20,24 @@ async def search_vectors_by_embedding(
     embedding: list,
     collection: str,
     label_filter: Union[str, List[str]] = None,
-    keyword_filter: Optional[List[str]] = None,
     limit: int = 10,
-    score_threshold: float = 0.5,
+    score_threshold: Optional[float] = 0.5,
 ):
     """
     Realiza una consulta en Qdrant enviando un vector y buscando los puntos
-    más similares. Permite opcionalmente:
-    - `label_filter`: filtro EXACTO y estricto por etiqueta (ej. "frente").
-    - `keyword_filter`: lista de palabras clave para un filtro de texto
-      libre (OR) sobre brand/model/color/details, usado en la búsqueda
-      semántica híbrida por texto.
+    más similares. `label_filter` es un filtro EXACTO y estricto por
+    etiqueta (ej. "frente"), usado en /search/filtered.
 
-    `score_threshold` actúa solo como un piso muy laxo para descartar ruido
-    evidente antes de llegar a Qdrant; el filtrado fino de relevancia lo
-    hace `compute_dynamic_threshold` sobre los resultados ya devueltos.
+    `score_threshold` es un piso ABSOLUTO de Qdrant: cualquier score por
+    debajo se descarta antes de llegar al umbral dinámico. Tiene sentido
+    para similitud imagen-imagen (scores altos, ~0.7-0.95), pero es
+    demasiado agresivo para similitud texto-imagen (CLIP da scores mucho
+    más bajos, ~0.2-0.4, aunque el match sea correcto). Para búsquedas de
+    texto, pasar `score_threshold=None` para no aplicar ningún piso acá y
+    dejar que `compute_dynamic_threshold` (sobre los resultados ya
+    devueltos) haga todo el filtrado.
     """
-    must_conditions = []
-    should_conditions = []
+    query_filter = None
 
     if label_filter:
         if isinstance(label_filter, list):
@@ -45,22 +45,8 @@ async def search_vectors_by_embedding(
         else:
             match_condition = models.MatchValue(value=label_filter)
 
-        must_conditions.append(
-            models.FieldCondition(key="label", match=match_condition)
-        )
-
-    if keyword_filter:
-        for keyword in keyword_filter:
-            for field in ("brand", "model", "color", "details"):
-                should_conditions.append(
-                    models.FieldCondition(key=field, match=models.MatchText(text=keyword))
-                )
-
-    query_filter = None
-    if must_conditions or should_conditions:
         query_filter = models.Filter(
-            must=must_conditions or None,
-            should=should_conditions or None,
+            must=[models.FieldCondition(key="label", match=match_condition)]
         )
 
     response = await async_client.query_points(
@@ -78,10 +64,8 @@ async def search_vectors_by_embedding(
 async def search_vehicle_by_license_plate(license_plate: str, collection: str, limit: int = 50):
     """
     Busca directamente por coincidencia EXACTA de patente (sin similitud
-    vectorial). Se usa cuando se detecta una patente con alta confianza
-    (>= PLATE_MIN_CONFIDENCE) en la imagen de búsqueda: en ese caso no hace
-    falta comparar embeddings, se puede resolver la entidad directamente
-    por el índice de patente.
+    vectorial). Se usa cuando se detecta una patente con alta confianza en
+    la imagen de búsqueda.
     """
     points, _ = await async_client.scroll(
         collection_name=collection,

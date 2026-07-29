@@ -2,7 +2,6 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.modules.users.repository import UserRepository
 from app.modules.vehicles.controller import VehicleController
 from app.modules.vehicles.repository import VehicleRepository
 from app.modules.vehicles.service import VehicleService
@@ -20,7 +19,6 @@ def get_vehicle_service(
     return VehicleService(
         db=db,
         vehicle_repository=VehicleRepository(db),
-        user_repository=UserRepository(db),
         storage_service=GoogleCloudStorageService(),
         recognition_service=AIRecognitionService(),
     )

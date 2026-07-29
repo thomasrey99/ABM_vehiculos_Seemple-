@@ -35,6 +35,11 @@ class UpdateVehicleRequest(BaseModel):
         le=2100,
     )
 
+    insurance_policy: str | None = Field(
+        default=None,
+        max_length=50,
+    )
+
     observations: str | None = Field(
         default=None,
         max_length=2000,

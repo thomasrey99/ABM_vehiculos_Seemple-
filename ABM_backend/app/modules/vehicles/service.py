@@ -17,7 +17,6 @@ from app.mappings.image_label_mapping import IMAGE_LABEL_TO_RECOGNITION_LABEL
 from app.models.image_detail import ImageDetail
 from app.models.vehicle import Vehicle
 from app.models.vehicle_image import VehicleImage
-from app.modules.users.repository import UserRepository
 from app.modules.vehicles.repository import VehicleRepository
 from app.modules.vehicles.schemas.create_vehicle_request import (
     CreateImageDetailRequest,
@@ -38,13 +37,11 @@ class VehicleService:
         self,
         db: AsyncSession,
         vehicle_repository: VehicleRepository,
-        user_repository: UserRepository,
         storage_service: StorageService,
         recognition_service: RecognitionService,
     ):
         self.db = db
         self.vehicle_repository = vehicle_repository
-        self.user_repository = user_repository
         self.storage_service = storage_service
         self.recognition_service = recognition_service
 
@@ -56,8 +53,6 @@ class VehicleService:
 
         if not request.images:
             raise BadRequestException("Debe enviarse al menos una imagen.")
-
-        await self._validate_owner(request.owner_id)
 
         await self._validate_license_plate(request.license_plate)
 
@@ -121,19 +116,6 @@ class VehicleService:
 
         return VehicleResponse.model_validate(vehicle)
 
-    async def _validate_owner(
-        self,
-        owner_id: UUID,
-    ) -> None:
-
-        owner = await self.user_repository.get_by_id(owner_id)
-
-        if owner is None:
-            raise NotFoundException("El propietario no existe.")
-
-        if not owner.is_active:
-            raise BadRequestException("El propietario se encuentra inactivo.")
-
     async def _validate_license_plate(
         self,
         license_plate: str,
@@ -192,12 +174,12 @@ class VehicleService:
 
         return Vehicle(
             id=uuid4(),
-            owner_id=request.owner_id,
             license_plate=request.license_plate.upper().strip(),
             brand=request.brand.strip(),
             model=request.model.strip(),
             color=request.color.strip() if request.color else None,
             year=request.year,
+            insurance_policy=request.insurance_policy.strip() if request.insurance_policy else None,
             observations=request.observations.strip() if request.observations else None,
             is_active=True,
         )
@@ -345,6 +327,20 @@ class VehicleService:
     ) -> VehicleResponse:
 
         vehicle = await self.vehicle_repository.get_by_id(vehicle_id)
+
+        if vehicle is None:
+            raise NotFoundException("Vehículo no encontrado.")
+
+        return VehicleResponse.model_validate(vehicle)
+
+    async def get_by_license_plate(
+        self,
+        license_plate: str,
+    ) -> VehicleResponse:
+
+        vehicle = await self.vehicle_repository.get_by_license_plate(
+            license_plate.upper().strip()
+        )
 
         if vehicle is None:
             raise NotFoundException("Vehículo no encontrado.")

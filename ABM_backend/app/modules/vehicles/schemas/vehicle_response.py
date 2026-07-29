@@ -3,9 +3,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.enums.embedding_status import EmbeddingStatus
 from app.enums.image_detail import ImageDetailType
 from app.enums.image_label import ImageLabel
-from app.enums.embedding_status import EmbeddingStatus
 
 
 class ImageDetailResponse(BaseModel):
@@ -29,23 +29,11 @@ class VehicleImageResponse(BaseModel):
         default_factory=list
     )
 
-class VehicleOwnerResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    first_name: str
-    last_name: str
-    email: str
-
 
 class VehicleResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-
-    owner_id: UUID
-
-    owner: VehicleOwnerResponse
 
     license_plate: str
 
@@ -56,6 +44,8 @@ class VehicleResponse(BaseModel):
     color: str | None
 
     year: int | None
+
+    insurance_policy: str | None
 
     observations: str | None
 
@@ -68,4 +58,3 @@ class VehicleResponse(BaseModel):
     images: list[VehicleImageResponse] = Field(
         default_factory=list
     )
-

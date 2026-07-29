@@ -38,7 +38,6 @@ class VehicleRepository:
             select(Vehicle)
             .where(Vehicle.id == vehicle_id)
             .options(
-                selectinload(Vehicle.owner),
                 selectinload(Vehicle.images).selectinload(
                     VehicleImage.details
                 ),
@@ -59,6 +58,11 @@ class VehicleRepository:
             .where(
                 Vehicle.license_plate == license_plate
             )
+            .options(
+                selectinload(Vehicle.images).selectinload(
+                    VehicleImage.details
+                ),
+            )
         )
 
         result = await self.db.execute(stmt)
@@ -72,7 +76,6 @@ class VehicleRepository:
         stmt = (
             select(Vehicle)
             .options(
-                selectinload(Vehicle.owner),
                 selectinload(Vehicle.images).selectinload(
                     VehicleImage.details
                 ),
