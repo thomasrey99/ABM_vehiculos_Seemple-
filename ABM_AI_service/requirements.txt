@@ -22,3 +22,5 @@ qdrant-client==1.17.1
 scikit-learn==1.8.0
 fast-alpr[onnx]==0.4.0
 opencv-python==4.11.0.86
+
+deep_translator==1.11.4
