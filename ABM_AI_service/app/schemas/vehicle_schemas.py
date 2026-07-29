@@ -5,6 +5,7 @@ from uuid import UUID
 class ImageMatch(BaseModel):
     score: float
     label: Optional[str] = None
+    details: Optional[List[str]] = None
 
 class VehiclesGroup(BaseModel):
     vehicle_id: UUID
@@ -13,7 +14,6 @@ class VehiclesGroup(BaseModel):
     brand: Optional[str] = None
     model: Optional[str] = None
     color: Optional[str] = None
-    details: Optional[List[str]] = None
 
 class SearchResponse(BaseModel):
     matches: List[VehiclesGroup]

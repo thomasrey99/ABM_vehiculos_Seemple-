@@ -3,49 +3,74 @@ from app.exceptions.appExceptions import BadRequestException, InternalServerExce
 from app.services.embedding.embedding_service import generate_embedding
 from app.services.qdrant.vector_save_service import save_labeled_vector
 from app.services.qdrant.vector_delete_service import delete_points_by_ids
+from app.utils.plate_recognition import recognize_plate
 from app.utils.response import build_response
 
 
-async def ingest_controller(vehicle_id, files, labels, license_plate, brand, model, color, details=None):
+async def ingest_controller(vehicle_id, files, labels, brand, model, color, details=None):
     """
     Recibe un conjunto de imágenes y etiquetas de un vehículo, junto con sus
-    metadatos (patente, marca, modelo, color, detalles) provistos por el
-    backend, e indexa cada imagen en Qdrant con todos esos datos en el
-    payload. La patente ya no se detecta por ANPR acá: la manda el backend,
-    que ya la tiene validada como dato propio del vehículo.
-    Si falla una imagen a mitad del lote, revierte (rollback) las que ya se
-    habían insertado para no dejar datos parciales/huérfanos en Qdrant.
+    metadatos compartidos (marca, modelo, color) y un detalle específico POR
+    IMAGEN (ej. un rayón asociado al sector "atras", no al vehículo entero).
+    Detecta automáticamente la patente en el lote de imágenes (ANPR) e
+    indexa cada imagen en Qdrant. Si falla una imagen a mitad del lote,
+    revierte (rollback) las que ya se habían insertado.
     """
-    
     if not vehicle_id:
         raise BadRequestException("vehicle_id es requerido")
-
-    if not license_plate:
-        raise BadRequestException("license_plate es requerido")
 
     if len(files) != len(labels):
         raise BadRequestException("La cantidad de archivos y etiquetas no coincide")
 
+    if details:
+        if len(details) != len(files):
+            raise BadRequestException(
+                "Si se envían 'details', debe haber uno por cada imagen "
+                "(enviar cadena vacía para las que no tengan detalle)"
+            )
+    else:
+        details = [""] * len(files)
+
+    # Leemos los bytes crudos de cada imagen una sola vez: se usan tanto
+    # para el reconocimiento de patente (sin reescalar, para no perder
+    # legibilidad de los caracteres) como para generar el embedding CLIP.
     raw_images = [await file.read() for file in files]
 
+    detected_plate = None
+    best_confidence = 0.0
+    for image_bytes in raw_images:
+        plate_result = recognize_plate(image_bytes)
+        if plate_result and plate_result["confidence"] > best_confidence:
+            detected_plate = plate_result["text"]
+            best_confidence = plate_result["confidence"]
+
+    # Metadata COMPARTIDA por todas las imágenes de este vehículo.
     vehicle_metadata = {
-        "license_plate": license_plate,
+        "license_plate": detected_plate,
         "brand": brand,
         "model": model,
         "color": color,
-        "details": details or [],
     }
 
     indexed_results = []
     inserted_point_ids = []
 
     try:
-        for image_bytes, label in zip(raw_images, labels):
+        for image_bytes, label, detail in zip(raw_images, labels, details):
 
             embedding = await generate_embedding(image_bytes)
 
+            # `details` es POR IMAGEN: solo se asocia al sector fotografiado
+            # en esta foto puntual, no se replica a las demás.
+            image_details = [detail.strip()] if detail and detail.strip() else []
+
             point_id = await save_labeled_vector(
-                vehicle_id, embedding, label, settings.COLLECTION_NAME, vehicle_metadata
+                vehicle_id,
+                embedding,
+                label,
+                settings.COLLECTION_NAME,
+                vehicle_metadata,
+                image_details,
             )
             inserted_point_ids.append(point_id)
 
@@ -53,7 +78,7 @@ async def ingest_controller(vehicle_id, files, labels, license_plate, brand, mod
                 "vehicle_id": str(vehicle_id),
                 "embedding_id": point_id,
                 "label": label,
-                "license_plate": license_plate,
+                "license_plate": detected_plate,
             })
 
         return build_response(
@@ -65,8 +90,6 @@ async def ingest_controller(vehicle_id, files, labels, license_plate, brand, mod
     except BadRequestException:
         raise
     except Exception as e:
-        # Rollback: revertimos los vectores que ya se habían insertado en
-        # este lote antes de que ocurriera el fallo.
         if inserted_point_ids:
             try:
                 await delete_points_by_ids(inserted_point_ids, settings.COLLECTION_NAME)

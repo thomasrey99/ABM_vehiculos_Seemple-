@@ -12,19 +12,21 @@ BOOST_PER_KEYWORD_MATCH = 0.08
 def compute_keyword_boost(result: dict, keywords: List[str]) -> float:
     """
     Calcula un puntaje adicional según cuántas palabras clave de la consulta
-    en lenguaje natural aparecen en los metadatos del vehículo (brand,
-    model, color, details). Se usa para priorizar vehículos que coinciden
-    textualmente con la descripción del usuario, combinando esa señal con
-    la similitud visual del embedding en vez de usarla como filtro
-    excluyente. Tanto las keywords como los metadatos se normalizan (sin
-    tildes) antes de compararse, para que "rayón" y "rayon" matcheen igual.
+    en lenguaje natural aparecen en los metadatos de ESTA imagen puntual:
+    brand/model/color (compartidos por el vehículo) + label y details
+    (específicos del sector fotografiado en esta imagen). Por eso el boost
+    se calcula por resultado individual, ANTES de agrupar por vehículo: así
+    "rayón en puerta izquierda" prioriza justo la imagen cuyo label o
+    details mencionan "izquierda", no cualquier imagen del mismo vehículo.
+    Tanto las keywords como los metadatos se normalizan (sin tildes) antes
+    de compararse.
     """
     if not keywords:
         return 0.0
 
     searchable_parts = [
         normalize_text(str(result.get(field)))
-        for field in ("brand", "model", "color")
+        for field in ("brand", "model", "color", "label")
         if result.get(field)
     ]
     searchable_parts.extend(

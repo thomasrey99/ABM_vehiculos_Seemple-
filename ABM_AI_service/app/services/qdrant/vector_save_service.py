@@ -1,6 +1,6 @@
 from app.db.qdrant_client import async_client
 from qdrant_client.models import PointStruct
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 import uuid
 
@@ -11,14 +11,16 @@ async def save_labeled_vector(
     label: str,
     collection: str,
     vehicle_metadata: Optional[dict] = None,
+    image_details: Optional[List[str]] = None,
 ):
     """
     Guarda (hace un upsert) un nuevo vector numérico en la base de datos
-    Qdrant. Guarda también datos asociados (payload) como el ID del
-    vehículo, la etiqueta descriptiva, y opcionalmente los metadatos del
-    vehículo (license_plate, brand, model, color, details).
+    Qdrant. Guarda también datos asociados (payload):
+    - `label` e `image_details`: específicos de ESTA imagen/sector
+      (ej. label="atras", details=["rayón puerta izquierda"]).
+    - `vehicle_metadata`: compartido por TODAS las imágenes del vehículo
+      (brand, model, color, license_plate).
     """
-    print(vehicle_metadata)
     point_id = str(uuid.uuid4())
 
     payload = {
@@ -26,10 +28,11 @@ async def save_labeled_vector(
         "label": label,
     }
 
+    if image_details:
+        payload["details"] = image_details
+
     if vehicle_metadata:
         for key, value in vehicle_metadata.items():
-            # No pisamos el payload con valores vacíos (ej. patente no
-            # detectada, o listas de detalles vacías).
             if value not in (None, "", []):
                 payload[key] = value
 
