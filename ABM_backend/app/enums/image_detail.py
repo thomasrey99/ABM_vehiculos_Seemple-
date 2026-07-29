@@ -1,0 +1,16 @@
+from enum import Enum
+
+
+class ImageDetailType(str, Enum):
+    DENT = "DENT"
+    BROKEN_GLASS= "BROKEN_GLASS"
+    SCRATCH = "SCRATCH"
+    CRACK = "CRACK"
+    BROKEN = "BROKEN"
+    RUST = "RUST"
+    STICKER = "STICKER"
+    MISSING_PART = "MISSING_PART"
+    PAINT_DAMAGE = "PAINT_DAMAGE"
+    DEFORMATION = "DEFORMATION"
+    OTHER_COLOR = "OTHER_COLOR"
+    OTHER = "OTHER"

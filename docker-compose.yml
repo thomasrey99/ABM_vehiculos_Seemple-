@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+
+  backend:
+    build:
+      context: ./ABM_backend
+
+    container_name: backend
+
+    env_file:
+      - ./ABM_backend/.env
+
+    environment:
+      AI_SERVICE_URL: http://ai-service:8001
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      - ai-service
+
+    networks:
+      - app-network
+
+  ai-service:
+    build:
+      context: ./ABM_AI_service
+
+    container_name: ai-service
+
+    env_file:
+      - ./ABM_AI_service/.env
+
+    ports:
+      - "8001:8001"
+
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

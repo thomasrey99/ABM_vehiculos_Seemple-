@@ -1,0 +1,9 @@
+# Entornos virtuales de Python
+.venv/
+venv/
+ENV/
+
+# Ignorar carpetas internas de microservicios si no son submódulos
+ABM_AI_service/.venv/
+ABM_backend/.venv/
+ABM_backend/credentials/google_cloud_credentials.json

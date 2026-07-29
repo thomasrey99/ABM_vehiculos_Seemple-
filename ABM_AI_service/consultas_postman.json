@@ -1,0 +1,375 @@
+{
+	"info": {
+		"_postman_id": "b1a2c3d4-e5f6-7890-1234-56789abcdef0",
+		"name": "ABM AI Service - Reconocimiento de Vehículos",
+		"description": "Colección para probar los endpoints del servicio de reconocimiento/búsqueda de imágenes de vehículos (CLIP + Qdrant), incluyendo detección automática de patente (ANPR) y búsqueda semántica híbrida por texto.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "apikey",
+		"apikey": [
+			{
+				"key": "key",
+				"value": "X-API-Key",
+				"type": "string"
+			},
+			{
+				"key": "value",
+				"value": "{{api_key}}",
+				"type": "string"
+			},
+			{
+				"key": "in",
+				"value": "header",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "1. Ingesta",
+			"item": [
+				{
+					"name": "Ingestar imágenes de un vehículo",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "vehicle_id",
+									"value": "8308f88e-55ac-46a0-8d41-7988f2d85248",
+									"description": "UUID del vehículo",
+									"type": "text"
+								},
+								{
+									"key": "brand",
+									"value": "Toyota",
+									"description": "Marca del vehículo",
+									"type": "text"
+								},
+								{
+									"key": "model",
+									"value": "Corolla",
+									"description": "Modelo del vehículo",
+									"type": "text"
+								},
+								{
+									"key": "color",
+									"value": "Blanco",
+									"description": "Color del vehículo",
+									"type": "text"
+								},
+								{
+									"key": "details",
+									"value": "rayón puerta izquierda",
+									"description": "Detalle adicional (repetir el campo para agregar más de uno)",
+									"type": "text"
+								},
+								{
+									"key": "labels",
+									"value": "frente",
+									"description": "Etiqueta para el primer archivo",
+									"type": "text"
+								},
+								{
+									"key": "labels",
+									"value": "atras",
+									"description": "Etiqueta para el segundo archivo",
+									"type": "text"
+								},
+								{
+									"key": "files",
+									"type": "file",
+									"src": [],
+									"description": "Primera imagen"
+								},
+								{
+									"key": "files",
+									"type": "file",
+									"src": [],
+									"description": "Segunda imagen"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/ingest",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"ingest"
+							]
+						},
+						"description": "Sube e indexa un lote de imágenes asociadas a un vehículo. La patente (license_plate) NO se envía: se detecta automáticamente (ANPR) a partir de las imágenes del lote, con una confianza mínima configurable (por defecto 90%)."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Búsqueda",
+			"item": [
+				{
+					"name": "Búsqueda por imagen (con detección de patente)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": [],
+									"description": "Imagen a buscar. Si contiene una patente legible con alta confianza, el servicio la usa para buscar el vehículo exacto por patente; si no, cae a búsqueda por similitud visual."
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/search/image",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"search",
+								"image"
+							]
+						},
+						"description": "Busca vehículos similares. Primero intenta identificar una patente en la imagen (ANPR); si la encuentra con confianza suficiente, devuelve el vehículo por match exacto de patente. Si no, usa similitud visual con umbral dinámico."
+					},
+					"response": []
+				},
+				{
+					"name": "Búsqueda filtrada por etiquetas (Imagen + Labels)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": [],
+									"description": "Imagen a buscar (ej. foto del frente)"
+								},
+								{
+									"key": "labels",
+									"value": "frente",
+									"description": "Etiqueta opcional 1",
+									"type": "text"
+								},
+								{
+									"key": "labels",
+									"value": "atras",
+									"description": "Etiqueta opcional 2",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/search/filtered",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"search",
+								"filtered"
+							]
+						},
+						"description": "Busca por similitud visual aplicando un filtro estricto de etiquetas en Qdrant. Si no se envían labels, usa un set de etiquetas por defecto (frente, frente 45 izquierda/derecha, atras, atras 45 izquierda/derecha)."
+					},
+					"response": []
+				},
+				{
+					"name": "Búsqueda semántica por texto (híbrida)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "text",
+									"value": "vehiculo marca toyota modelo corolla color blanco con rayon en puerta izquierda",
+									"description": "Texto descriptivo en cualquier idioma",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/search/text",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"search",
+								"text"
+							]
+						},
+						"description": "Combina dos señales: (1) palabras clave extraídas del texto original, filtradas contra brand/model/color/details en Qdrant, y (2) el embedding CLIP del texto (traducido al inglés) para similitud visual-semántica. Devuelve los vehículos agrupados que superan el umbral dinámico."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Actualización",
+			"item": [
+				{
+					"name": "Actualizar etiqueta de una imagen",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"embedding_id\": \"04d63bcd-9e9e-403a-91d1-78ca4fc77d45\",\n    \"new_label\": \"nuevo valor de etiqueta\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/update-label",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"update-label"
+							]
+						},
+						"description": "Actualiza la etiqueta (label) de una imagen puntual en Qdrant, identificada por su embedding_id (el id del punto/vector, no el del vehículo). Devuelve 404 si el embedding_id no existe."
+					},
+					"response": []
+				},
+				{
+					"name": "Reemplazar imagen (embedding) por id",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": [],
+									"description": "Nueva imagen para regenerar el embedding"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/images/04d63bcd-9e9e-403a-91d1-78ca4fc77d45",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"images",
+								"04d63bcd-9e9e-403a-91d1-78ca4fc77d45"
+							]
+						},
+						"description": "Reemplaza la imagen (y su embedding) de un punto ya indexado, identificado por su embedding_id. Conserva el resto de los metadatos (vehicle_id, label, brand, model, color, license_plate, details) sin cambios. Devuelve 404 si el embedding_id no existe."
+					},
+					"response": []
+				},
+				{
+					"name": "Actualizar metadatos de un vehículo",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"color\": \"Gris\",\n    \"details\": [\"rayón puerta izquierda\", \"golpe leve paragolpes trasero\"]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/vehicles/8308f88e-55ac-46a0-8d41-7988f2d85248",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"vehicles",
+								"8308f88e-55ac-46a0-8d41-7988f2d85248"
+							]
+						},
+						"description": "Actualiza parcialmente brand/model/color/details/license_plate en TODAS las imágenes indexadas de un vehículo (solo se modifican los campos enviados en el body). Devuelve 404 si el vehicle_id no existe."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. Eliminación",
+			"item": [
+				{
+					"name": "Eliminar todas las imágenes de un vehículo",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/delete/8308f88e-55ac-46a0-8d41-7988f2d85248",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"delete",
+								"8308f88e-55ac-46a0-8d41-7988f2d85248"
+							]
+						},
+						"description": "Elimina todos los vectores/imágenes asociados a un vehicle_id (UUID) específico en Qdrant."
+					},
+					"response": []
+				},
+				{
+					"name": "Eliminar un embedding puntual por id",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/delete/embedding/04d63bcd-9e9e-403a-91d1-78ca4fc77d45",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"delete",
+								"embedding",
+								"04d63bcd-9e9e-403a-91d1-78ca4fc77d45"
+							]
+						},
+						"description": "Elimina un único embedding (imagen) por su id, sin afectar al resto de las imágenes del mismo vehículo. Devuelve 404 si el embedding_id no existe."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8001",
+			"type": "string"
+		},
+		{
+			"key": "api_key",
+			"value": "Seemple2026",
+			"type": "string"
+		}
+	]
+}

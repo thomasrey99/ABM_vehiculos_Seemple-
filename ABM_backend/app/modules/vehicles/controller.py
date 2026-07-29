@@ -1,0 +1,81 @@
+from uuid import UUID
+from fastapi import UploadFile
+from app.modules.vehicles.schemas.create_vehicle_request import (
+    CreateVehicleRequest,
+)
+from app.modules.vehicles.service import VehicleService
+from app.shared.response import success_response
+
+class VehicleController:
+
+    def __init__(
+        self,
+        service: VehicleService,
+    ):
+        self.service = service
+
+    async def create(
+        self,
+        request: str,
+        files: list[UploadFile],
+    ):
+
+        create_request = CreateVehicleRequest.model_validate_json(
+            request
+        )
+
+        vehicle = await self.service.create(
+            request=create_request,
+            files=files,
+        )
+
+        return success_response(
+            data=vehicle,
+            message="Vehículo creado correctamente.",
+        )
+
+    async def get_by_id(
+        self,
+        vehicle_id: UUID,
+    ):
+
+        vehicle = await self.service.get_by_id(
+            vehicle_id
+        )
+
+        return success_response(
+            data=vehicle,
+            message="Vehículo obtenido correctamente."
+        )
+
+    async def get_all(
+        self,
+    ):
+
+        vehicles = await self.service.get_all()
+
+        return success_response(
+            data=vehicles,
+            message="Vehículos obtenidos correctamente."
+        )
+
+    async def delete(
+        self,
+        vehicle_id: UUID
+    ):
+        await self.service.delete(vehicle_id)
+
+        return success_response(
+            message="Vehiculo eliminado correctamente.",
+        )
+
+    async def search_by_image(
+        self,
+        file: UploadFile,
+    ):
+        result = await self.service.search_by_image(file)
+
+        return success_response(
+            data=result.model_dump(mode="json"),
+            message="Búsqueda por imagen completada.",
+        )
