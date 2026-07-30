@@ -48,7 +48,7 @@
                 {
                   "key": "request",
                   "type": "text",
-                  "value": "{\n  \"license_plate\": \"AA123BB\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Corolla\",\n  \"color\": \"Blanco\",\n  \"year\": 2020,\n  \"insurance_policy\": \"POL-000123\",\n  \"observations\": \"Vehiculo de prueba\",\n  \"images\": [\n    {\n      \"filename\": \"frente.jpg\",\n      \"label\": \"FRONT\",\n      \"details\": [\n        {\n          \"detail_type\": \"SCRATCH\",\n          \"description\": \"Rayon leve en el paragolpes\"\n        }\n      ]\n    },\n    {\n      \"filename\": \"atras.jpg\",\n      \"label\": \"BACK\",\n      \"details\": []\n    }\n  ]\n}"
+                  "value": "{\n  \"license_plate\": \"AA123BB\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Corolla\",\n  \"color\": \"Blanco\",\n  \"year\": 2020,\n  \"insurance_policy\": \"POL-000123\",\n  \"observations\": \"Vehiculo de prueba\",\n  \"images\": [\n    {\n      \"filename\": \"frente.jpg\",\n      \"label\": \"FRENTE\",\n      \"details\": [\n        {\n          \"detail_type\": \"RAYON\",\n          \"description\": \"Rayon leve en el paragolpes\"\n        }\n      ]\n    },\n    {\n      \"filename\": \"atras.jpg\",\n      \"label\": \"ATRAS\",\n      \"details\": []\n    }\n  ]\n}"
                 },
                 {
                   "key": "files",
@@ -112,7 +112,7 @@
                 {
                   "key": "request",
                   "type": "text",
-                  "value": "{\n  \"license_plate\": \"AA123BB\",\n  \"brand\": \"Ford\",\n  \"model\": \"Focus\",\n  \"images\": [\n    { \"filename\": \"foto.jpg\", \"label\": \"FRONT\", \"details\": [] }\n  ]\n}"
+                  "value": "{\n  \"license_plate\": \"AA123BB\",\n  \"brand\": \"Ford\",\n  \"model\": \"Focus\",\n  \"images\": [\n    { \"filename\": \"foto.jpg\", \"label\": \"FRENTE\", \"details\": [] }\n  ]\n}"
                 },
                 {
                   "key": "files",
@@ -158,7 +158,7 @@
                 {
                   "key": "request",
                   "type": "text",
-                  "value": "{\n  \"license_plate\": \"BB456CC\",\n  \"brand\": \"Fiat\",\n  \"model\": \"Cronos\",\n  \"images\": [\n    { \"filename\": \"no_existe.jpg\", \"label\": \"FRONT\", \"details\": [] }\n  ]\n}"
+                  "value": "{\n  \"license_plate\": \"BB456CC\",\n  \"brand\": \"Fiat\",\n  \"model\": \"Cronos\",\n  \"images\": [\n    { \"filename\": \"no_existe.jpg\", \"label\": \"FRENTE\", \"details\": [] }\n  ]\n}"
                 },
                 {
                   "key": "files",

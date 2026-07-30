@@ -214,7 +214,7 @@ class VehicleService:
                 filename=uploaded_file.filename,
                 image_url=uploaded_file.url,
                 label=image_request.label,
-                embedding_status=EmbeddingStatus.PENDING,
+                embedding_status=EmbeddingStatus.PENDIENTE,
                 details=self._build_details(image_request.details),
             )
 
@@ -304,7 +304,7 @@ class VehicleService:
 
             vehicle_image.embedding_id = embedding_id
             vehicle_image.indexed_at = now
-            vehicle_image.embedding_status = EmbeddingStatus.COMPLETED
+            vehicle_image.embedding_status = EmbeddingStatus.COMPLETADO
             updated = True
 
         if not updated:

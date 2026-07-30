@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import TypeVar, Generic, Optional
+from typing import TypeVar, Generic, Optional, List
 
 T = TypeVar('T')
 
@@ -14,3 +14,4 @@ class IndexedImageResponse(BaseModel):
     embedding_id: str
     label: str
     license_plate: Optional[str] = None
+    details: Optional[List[str]] = None

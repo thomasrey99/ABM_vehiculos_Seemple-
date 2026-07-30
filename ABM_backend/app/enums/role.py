@@ -1,6 +1,7 @@
 from enum import Enum
-
-
+ 
+ 
 class Role(str, Enum):
-    CLIENT = "CLIENT"
+    CLIENTE = "CLIENTE"
     ADMIN = "ADMIN"
+ 

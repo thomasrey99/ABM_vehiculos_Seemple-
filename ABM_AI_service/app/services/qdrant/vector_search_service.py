@@ -1,6 +1,6 @@
 from app.db.qdrant_client import async_client
 from qdrant_client.http import models
-from typing import List, Optional, Union
+from typing import Optional
 
 
 def _point_to_dict(payload: dict, score: float) -> dict:
@@ -19,14 +19,12 @@ def _point_to_dict(payload: dict, score: float) -> dict:
 async def search_vectors_by_embedding(
     embedding: list,
     collection: str,
-    label_filter: Union[str, List[str]] = None,
     limit: int = 10,
     score_threshold: Optional[float] = 0.5,
 ):
     """
     Realiza una consulta en Qdrant enviando un vector y buscando los puntos
-    más similares. `label_filter` es un filtro EXACTO y estricto por
-    etiqueta (ej. "frente"), usado en /search/filtered.
+    más similares por similitud de embedding.
 
     `score_threshold` es un piso ABSOLUTO de Qdrant: cualquier score por
     debajo se descarta antes de llegar al umbral dinámico. Tiene sentido
@@ -37,22 +35,9 @@ async def search_vectors_by_embedding(
     dejar que `compute_dynamic_threshold` (sobre los resultados ya
     devueltos) haga todo el filtrado.
     """
-    query_filter = None
-
-    if label_filter:
-        if isinstance(label_filter, list):
-            match_condition = models.MatchAny(any=label_filter)
-        else:
-            match_condition = models.MatchValue(value=label_filter)
-
-        query_filter = models.Filter(
-            must=[models.FieldCondition(key="label", match=match_condition)]
-        )
-
     response = await async_client.query_points(
         collection_name=collection,
         query=embedding,
-        query_filter=query_filter,
         limit=limit,
         with_payload=True,
         score_threshold=score_threshold,

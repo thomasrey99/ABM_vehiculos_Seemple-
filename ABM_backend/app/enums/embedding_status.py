@@ -1,7 +1,7 @@
 from enum import Enum
 
 class EmbeddingStatus(str, Enum):
-    PENDING = "PENDING"
-    PROCESSING = "PROCESSING"
-    COMPLETED = "COMPLETED"
+    PENDIENTE = "PENDIENTE"
+    PROCESANDO = "PROCESANDO"
+    COMPLETADO = "COMPLETADO"
     ERROR = "ERROR"

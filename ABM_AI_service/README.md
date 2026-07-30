@@ -1,436 +1,153 @@
-# API de Reconocimiento de Imágenes Multimodal 🏠🔍
+# ABM AI Service — Reconocimiento y Búsqueda de Imágenes de Vehículos
 
-Este proyecto es un microservicio de Inteligencia Artificial diseñado para la indexación y búsqueda multimodal de imágenes (por similitud visual y texto). 
-Utiliza el modelo **CLIP** para la generación de embeddings, **Qdrant** como base de datos vectorial y **FastAPI** para la gestión robusta de rutas.
+Servicio en FastAPI para indexar y buscar imágenes de vehículos por similitud visual (CLIP), por patente (ANPR) y por descripción en lenguaje natural (búsqueda semántica híbrida). Usa **Qdrant** como base de datos vectorial.
 
----
+> Este proyecto ya NO es polimórfico (no es genérico para cualquier entidad) — está orientado específicamente a vehículos.
 
-## 📋 Requisitos Previos
+## Stack tecnológico
 
-* **Docker** y **Docker Compose** (Recomendado para el despliegue y desarrollo).
-* **Python 3.10+** (Si se desea ejecutar localmente sin Docker).
-* Una instancia de **Qdrant** (Local a través de Docker o Qdrant Cloud).
+- **FastAPI** — framework web.
+- **CLIP** (vía `sentence-transformers`) — genera embeddings de imágenes y texto en un espacio semántico compartido.
+- **Qdrant** — base de datos vectorial, almacena embeddings + metadata (payload).
+- **fast-alpr** (ONNX) — reconocimiento automático de patentes (ANPR), usado en la búsqueda por imagen.
+- **deep-translator** (Google Translate) — traduce las consultas de texto al inglés antes de generar el embedding, porque CLIP entiende mejor ese idioma.
+- **OpenCV** — decodificación de imágenes para el módulo de ANPR.
 
----
+## Variables de entorno (`.env`)
 
-## 📁 Estructura del Proyecto
-La arquitectura sigue el patrón **MVC** (Modelo-Vista-Controlador) para asegurar la escalabilidad y el desacoplamiento de la lógica de IA.
+| Variable | Descripción | Default |
+|---|---|---|
+| `SERVICE_API_KEY` | Clave requerida en el header `X-API-Key` para todas las rutas | *(requerida)* |
+| `QDRANT_URL` | URL de la instancia de Qdrant | *(requerida)* |
+| `QDRANT_API_KEY` | API key de Qdrant | *(requerida)* |
+| `MODEL` | Nombre/ruta del modelo CLIP (SentenceTransformer) | *(requerida)* |
+| `COLLECTION_NAME` | Nombre de la colección en Qdrant | `vehicles-images` |
+| `CLIP_VECTOR_SIZE` | Dimensión del vector de embedding | `512` |
+| `VECTOR_DISTANCE` | Métrica de distancia (`Cosine`, `Euclidean`, `Dot`) | `Cosine` |
+| `PLATE_MIN_CONFIDENCE` | Confianza mínima del OCR de patente para aceptar una lectura | `0.90` |
+| `PLATE_DETECTOR_MODEL` | Modelo detector de patentes (fast-alpr) | `yolo-v9-t-384-license-plate-end2end` |
+| `PLATE_OCR_MODEL` | Modelo OCR de patentes (fast-alpr) | `cct-xs-v2-global-model` |
 
-```bash
-Servicio-de-reconocimiento-de-imagenes/
- ├── 📂 app/                  # Código fuente de la aplicación
- │    ├── 🎮 controllers/    # Orquestación y validación de entrada
- │    ├── 🤖 services/       # Integraciones (CLIP, Qdrant)
- │    ├── 📦 schemas/        # Modelos Pydantic (Estructuras de datos)
- │    ├── 🔑 core/           # Configuración de modelos y seguridad
- │    ├── 🗄️ db/             # Clientes e inicialización de BD
- │    ├── 🛠️ utils/          # Herramientas de soporte y preprocesamiento
- │    └── 🛣️ routes/         # Definición de endpoints FastAPI
- ├── 📂 __pycache__/         # Archivos de caché de Python (Excluidos en .gitignore)
- ├── 📂 venv/                # Entorno virtual de Python (Excluidos en .gitignore)
- ├── 🐳 .dockerignore        # Archivos excluidos del contexto de Docker
- ├── 📄 .env                 # Variables de entorno (No incluido en Git)
- ├── 📄 .env.example         # Plantilla de variables de entorno
- ├── 📄 .gitignore           # Archivos excluidos del repositorio Git
- ├── 🚀 consultas_postman.json # Colección de pruebas para endpoints
- ├── 🐳 docker-compose.yml   # Orquestación de contenedores
- ├── 🐳 Dockerfile           # Receta para la imagen de la API
- ├── 🐍 main.py              # Punto de entrada de la aplicación FastAPI
- ├── 📄 README.md            # Documentación del proyecto
- └── 📄 requirements.txt     # Dependencias de Python
-```
+⚠️ **Ojo con `COLLECTION_NAME`**: si tu `.env` apunta a una colección vieja (ej. de una etapa anterior del proyecto), vas a leer/escribir contra datos con un esquema distinto sin ningún error visible. Verificá que coincida con la colección real que estás usando en la UI de Qdrant.
 
----
-
-## ⚙️ Configuración del Entorno (`.env`)
-
-El microservicio requiere de ciertas variables de entorno para inicializar la conexión con la base de datos, configurar el modelo de IA y establecer la seguridad. 
-
-Crea un archivo llamado `.env` en la raíz del proyecto (puedes duplicar el archivo `.env.example` para usarlo como plantilla) y completa los valores.
-
-> ⚠️ **SEGURIDAD:** Nunca hagas *commit* ni subas tu archivo `.env` a repositorios públicos (GitHub/GitLab). Asegúrate de que esté incluido en tu archivo `.gitignore`.
-
-### 📖 Diccionario de Variables
-
-| Variable | Categoría | Descripción | Ejemplo / Default |
-| :--- | :---: | :--- | :--- |
-| **`SERVICE_API_KEY`** | 🔐 Seguridad | Llave maestra que protegerá tus endpoints. Todo cliente que consuma esta API debe enviarla. | `mi_clave_secreta_123` |
-| **`MODEL`** | 🧠 Modelo IA | Nombre del modelo CLIP de HuggingFace/SentenceTransformers a instanciar. | `clip-ViT-B-32` |
-| **`CLIP_VECTOR_SIZE`** | 🧠 Modelo IA | Tamaño de las dimensiones del vector que escupe el modelo. | `512` |
-| **`VECTOR_DISTANCE`** | 🧠 Modelo IA | Métrica matemática que usará Qdrant para calcular la similitud. | `Cosine` |
-| **`COLLECTION_NAME`** | 💾 Qdrant | Nombre de la colección donde se indexarán las imágenes. | `properties-images` |
-| **`QDRANT_URL`** | 💾 Qdrant | Dirección URL (Endpoint) de tu clúster de base de datos vectorial. | `https://[id].cloud.qdrant.io` |
-| **`QDRANT_API_KEY`** | 💾 Qdrant | Token de acceso (solo requerido si utilizas Qdrant Cloud). | `eyJhbGciOi...` |
-
-### 📄 Plantilla para copiar y pegar
-
-```env
-# ==========================================
-# 🔐 SEGURIDAD
-# ==========================================
-SERVICE_API_KEY=tu_clave_super_secreta
-
-# ==========================================
-# 🧠 CONFIGURACIÓN DEL MODELO DE IA (CLIP)
-# ==========================================
-MODEL=clip-ViT-B-32
-CLIP_VECTOR_SIZE=512
-VECTOR_DISTANCE=Cosine
-
-# ==========================================
-# 💾 CONFIGURACIÓN DE QDRANT
-# ==========================================
-COLLECTION_NAME=properties-images
-QDRANT_URL=[https://tu-url-de-qdrant.cloud.qdrant.io](https://tu-url-de-qdrant.cloud.qdrant.io)
-QDRANT_API_KEY=tu_qdrant_api_key
-
-```
-
----
-
-## 🚀 Instalación y Ejecución
-
-### Opción A: Usando Docker Compose (Recomendado)
-
-La forma más rápida, segura y estandarizada de levantar el proyecto junto con todas sus dependencias. Asegúrate de tener tu archivo `.env` configurado.
-
-Ejecuta el siguiente comando en tu terminal:
+## Cómo correr
 
 ```bash
-docker compose up -d --build
-```
-
-El servicio estará disponible en 👉 `http://localhost:8000`.
-
-**NOTA**: Debido al peso de las dependencias, es normal que demore en completarse el proceso, suele tardar alrededor de 20 min con una buena conexion a internet, no interrumpas el proceso hasta que veas el build success.
-
-### Opción B: Ejecución Manual (Desarrollo Local sin Docker)
-
-**1. Crea un entorno virtual e instala las dependencias:**
-
-```bash
-# Crear entorno
-python -m venv venv
-
-# Activar entorno (Linux/macOS)
-source venv/bin/activate  
-
-# Activar entorno (Windows)
-venv\Scripts\activate     
-
-# Instalar requerimientos
 pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8001
 ```
 
-**2. Ejecuta el servidor con Uvicorn** (con recarga en caliente para desarrollo):
-
+O con Docker:
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+docker build -t abm-ai-service .
+docker run -p 8001:8001 --env-file .env abm-ai-service
 ```
 
----
+Todas las rutas requieren el header `X-API-Key: <tu SERVICE_API_KEY>`.
 
-## 🔐 Autenticación (Seguridad M2M)
+## Estructura del proyecto
 
-Todas las rutas de escritura y lectura de esta API están protegidas. Para consumir cualquier endpoint, debes incluir obligatoriamente la llave de seguridad en los **Headers** de tu petición HTTP:
+```
+app/
+├── config/settings.py              # Configuración (.env) tipada con pydantic-settings
+├── core/
+│   ├── model_embedding.py          # Singleton del modelo CLIP
+│   ├── plate_model.py              # Singleton del modelo ANPR (fast-alpr)
+│   └── security.py                 # Validación de X-API-Key
+├── db/
+│   ├── qdrant_client.py            # Clientes sync/async de Qdrant
+│   └── init_db.py                  # Creación de colección + índices de payload
+├── exceptions/
+│   ├── appExceptions.py            # AppException, BadRequestException, InternalServerException, NotFoundException
+│   └── handlers.py                 # Handlers globales de excepciones
+├── schemas/
+│   ├── request.py                  # UpdateLabelRequest, UpdateVehicleRequest, IngestMetadata, ImageIngestData
+│   ├── response.py                 # APIResponse[T], IndexedImageResponse
+│   └── vehicle_schemas.py          # ImageMatch, VehiclesGroup, SearchResponse
+├── services/
+│   ├── embedding/embedding_service.py   # Genera embeddings (texto o imagen) con CLIP
+│   └── qdrant/
+│       ├── vector_save_service.py       # Upsert de un punto (embedding + payload)
+│       ├── vector_search_service.py     # Búsqueda por similitud + búsqueda exacta por patente
+│       ├── vector_get_service.py        # Obtener un punto por id
+│       ├── vector_replace_service.py    # Reemplazar el embedding de un punto
+│       ├── vector_delete_service.py     # Borrado por vehicle_id o por lista de ids
+│       └── vector_update_metadata_service.py  # Update masivo de metadata por vehicle_id
+├── utils/
+│   ├── preprocess_image.py         # Preprocesa imágenes para CLIP (EXIF, RGB, resize)
+│   ├── plate_recognition.py        # Detección/lectura de patente (ANPR) sobre imagen cruda
+│   ├── traduction.py               # Traduce texto al inglés (deep_translator)
+│   ├── query_keywords.py           # Extrae keywords de una consulta en lenguaje natural
+│   ├── text_normalize.py           # Normaliza texto (minúsculas, sin tildes)
+│   ├── keyword_boost.py            # Calcula el boost de score por coincidencia de keywords
+│   ├── group_results.py            # Agrupa resultados de Qdrant por vehicle_id
+│   ├── dynamic_threshold.py        # Umbral de aceptación calculado sobre la distribución de scores
+│   └── response.py                 # build_response() — formato estándar de respuesta
+├── controllers/
+│   ├── post/    (ingest, search_image, search_text)
+│   ├── patch/   (update_label, replace_image, update_vehicle)
+│   └── delete/  (delete_vehicle, delete_embedding)
+└── routes/      (mismo árbol que controllers, un archivo por endpoint)
+```
 
-* **Header Key:** `X-API-Key`
-* **Value:** `<SERVICE_API_KEY>` *(El valor exacto definido en tu archivo .env)*
+## Modelo de datos (payload en Qdrant)
 
----
-
-## 🌐 Documentación Interactiva (Swagger UI)
-
-Una vez que el servidor esté corriendo, puedes acceder a la documentación interactiva autogenerada por FastAPI navegando a: 
-👉 **[http://localhost:8000/docs](http://localhost:8000/docs)**
-
-Allí podrás probar todos los endpoints directamente desde el navegador. Recuerda hacer clic en el botón verde **"Authorize"** en la parte superior derecha para ingresar tu API Key antes de hacer peticiones.
-
----
-
-## 🛠️ Contrato de Respuesta (Estructura Base)
-
-Todas las rutas devuelven sistemáticamente la siguiente estructura base de respuesta, lo que facilita la integración con el frontend o el backend principal:
+Cada punto en Qdrant representa **una imagen** de un vehículo:
 
 ```json
 {
-    "success": true | false,
-    "message": "Mensaje descriptivo sobre la operación",
-    "data": { ... } | null,
-    "error": "TIPO_DE_ERROR" | null
+    "vehicle_id": "<uuid>",
+    "label": "atras",
+    "details": ["abolladura", "vidrio roto"],
+    "license_plate": "AA021ID",
+    "brand": "Toyota",
+    "model": "Corolla",
+    "color": "Blanco"
 }
 ```
 
----
+- `vehicle_id`, `brand`, `model`, `color`, `license_plate`: **compartidos** por todas las imágenes del mismo vehículo.
+- `label`: **una sola etiqueta por imagen** (el sector fotografiado: frente, atrás, lateral izquierda, etc.).
+- `details`: **cero o más** por imagen (una foto puede mostrar abolladura Y vidrio roto a la vez).
 
-## 🛣️ Uso de las Rutas (Endpoints)
+## Endpoints
 
-> **Nota:** Todas las rutas utilizan `multipart/form-data` para recibir los parámetros y archivos.
+| Método | Ruta | Propósito |
+|---|---|---|
+| POST | `/ingest` | Sube e indexa un lote de imágenes de un vehículo (patente manual) |
+| POST | `/search/image` | Busca por imagen — primero intenta match exacto por patente (ANPR), si no usa similitud visual |
+| POST | `/search/text` | Búsqueda semántica híbrida por texto en lenguaje natural |
+| PATCH | `/update-label` | Actualiza el label (sector) de una imagen puntual |
+| PATCH | `/images/{embedding_id}` | Reemplaza la imagen/embedding de un punto existente |
+| PATCH | `/vehicles/{vehicle_id}` | Actualiza brand/model/color/license_plate de todo el vehículo |
+| DELETE | `/delete/{vehicle_id}` | Elimina todas las imágenes de un vehículo |
+| DELETE | `/delete/embedding/{embedding_id}` | Elimina una imagen puntual |
 
-### 1. Ingesta de Imágenes (Subir Propiedad)
-Indexa fotos asociadas a una propiedad. Para garantizar que los filtros de búsqueda ("Street View") funcionen correctamente, es **obligatorio** respetar la siguiente taxonomía estricta para el campo `labels`.
+Formato completo de request/response de cada uno: ver `rutas_informe.md` (o la colección de Postman `consultas_postman.json`).
 
-* **Ruta:** `POST /ingest`
-* **Formato:** `multipart/form-data`
+## Flujos clave
 
-| Campo | Tipo | Descripción |
-| :--- | :--- | :--- |
-| `parent_id` | `UUID` | ID único de la propiedad. |
-| `files` | `File[]` | Lista de imágenes a indexar. |
-| `labels` | `String[]`| Etiquetas de la taxonomía (deben coincidir en cantidad con los archivos). |
+### Reconocimiento de patente (ANPR)
+Se usa **exclusivamente en `/search/image`**, nunca en la ingesta (la patente se carga manualmente al ingestar). Al buscar por imagen:
+1. Se corre `fast-alpr` sobre la imagen cruda (sin el resize de CLIP, para no perder legibilidad).
+2. Si detecta una patente con confianza ≥ `PLATE_MIN_CONFIDENCE` (90% por defecto), busca match **exacto** de esa patente en el payload y devuelve el vehículo directamente (sin comparar embeddings).
+3. Si no hay patente confiable, o ningún vehículo la tiene, cae al flujo de similitud visual con umbral dinámico.
 
-### 🏷️ Taxonomía Estándar de Vistas (labels)
+### Búsqueda semántica híbrida por texto
+Combina dos señales, sin usar ninguna como filtro excluyente:
+1. **Similitud visual-semántica**: el texto se traduce al inglés (`deep_translator`) y se compara vía CLIP contra los embeddings de las imágenes, sin piso de score duro (los scores texto↔imagen son naturalmente más bajos que imagen↔imagen).
+2. **Boost por metadata**: se extraen keywords del texto **original** (sin traducir) y se les suma puntaje a los resultados cuyo `label`/`details`/`brand`/`model`/`color` las contengan — calculado **por imagen individual**, antes de agrupar por vehículo, para que "rayón en la puerta izquierda" priorice justo la foto de ese sector.
 
-* **Nota**: Es importante respetar esta taxonomía para mejorar la precisión de las búsquedas filtradas por etiquetas (Street View). Cada imagen debe tener una etiqueta que describa la vista específica de la propiedad.
+El umbral de aceptación final (`compute_dynamic_threshold`) se calcula sobre los scores ya combinados (visual + boost).
 
+## Notas de diseño
 
+- **Rollback en `/ingest`**: si falla una imagen a mitad del lote, se revierten (`delete`) los puntos ya insertados en ese request, para no dejar datos parciales.
+- **`label` vs `details`**: una imagen tiene un único sector (`label`) pero puede tener varios detalles (`details`) — es una relación 1-a-N, reflejada en el schema `ImageIngestData` de la ingesta.
+- **`/search/filtered` fue removido**: la búsqueda híbrida por texto (con boost por `label`) cubre los casos de sector específico con más flexibilidad que un filtro estricto por etiquetas.
 
-| Etiqueta Exacta | Descripción de la Fotografía |
-| :--- | :--- |
-| `frente` | Vista frontal directa a la fachada de la propiedad. |
-| `frente 45 izquierda` | Vista en diagonal (45º) tomada desde el lado izquierdo. |
-| `frente 45 derecha` | Vista en diagonal (45º) tomada desde el lado derecho. |
-| `lateral izq` | Vista completamente de perfil desde el lado izquierdo. |
-| `lateral der` | Vista completamente de perfil desde el lado derecho. |
-| `atras` | Vista desde la parte trasera. |
+## Pendiente / mejoras conocidas
 
-
-**NOTA** : La primera etiqueta del array corresponde al primer archivo del array, y así sucesivamente.
-
-#### ✅ Respuesta Exitosa
-```json
-{
-    "success": true,
-    "message": "Imágenes indexadas correctamente para la entidad 123e4567-e89b-12d3-a456-426614174001",
-    "data": [
-        {
-            "parent_id": "123e4567-e89b-12d3-a456-426614174001",
-            "vector_id": "d4f372c5-c198-4cc6-82de-f40ca215fb7f",
-            "label": "frente"
-        },
-        {
-            "parent_id": "123e4567-e89b-12d3-a456-426614174001",
-            "vector_id": "0f97b38b-3798-4599-b7d0-6f6c7e92a067",
-            "label": "frente 45 izquierda"
-        },
-        {
-            "parent_id": "123e4567-e89b-12d3-a456-426614174001",
-            "vector_id": "d21cba6d-ef82-4d93-be5f-e7875ccd13b0",
-            "label": "frente 45 derecha"
-        }
-    ],
-    "error": null
-}
-```
-
----
-
-### 🖼️ 2. Búsqueda Genérica (Solo Imagen)
-Busca propiedades similares a la imagen proporcionada evaluando únicamente la similitud visual. El sistema utiliza un **umbral de coincidencia dinámico** para garantizar la relevancia de los resultados.
-
-* **Método:** `POST`
-* **Ruta:** `/search/image`
-* **Formato:** `multipart/form-data`
-
-| Campo | Tipo | Descripción |
-| :--- | :--- | :--- |
-| `file` | `File` | La imagen base utilizada para calcular la similitud vectorial. |
-
-#### ✅ Respuesta Exitosa (Data)
-
-```json
-{
-    "success": true,
-    "message": "Busqueda de imagen completada",
-    "data": {
-        "matches": [
-            {
-                "parent_id": "123e4567-e89b-12d3-a456-426614174000",
-                "images": [
-                    {
-                        "score": 1.0,
-                        "label": "frente"
-                    },
-                    {
-                        "score": 0.98,
-                        "label": "frente 45 izquierda"
-                    }
-                ]
-            }
-        ],
-        "threshold": 0.95905315
-    },
-    "error": null
-}
-```
-
----
-
-### 🛣️ 3. Búsqueda Filtrada (Street View)
-Busca propiedades similares visualmente, pero restringiendo los resultados en la base de datos estrictamente a las etiquetas indicadas. Ideal para comparativas de fachadas específicas.
-
-* **Método:** `POST`
-* **Ruta:** `/search/filtered`
-* **Formato:** `multipart/form-data`
-
-| Campo | Tipo | Descripción |
-| :--- | :--- | :--- |
-| `file` | `File` | La imagen base tomada por el usuario. |
-| `labels` | `String[]` | **[Opcional]** Filtro de etiquetas. Por defecto: `["frente", "frente 45 izquierda", "frente 45 derecha"]`. |
-
-
-#### ✅ Respuesta Exitosa (Data)
-
-```json
-{
-    "success": true,
-    "message": "Búsqueda filtrada completada con éxito",
-    "data": {
-        "matches": [
-            {
-                "parent_id": "123e4567-e89b-12d3-a456-426614174000",
-                "images": [
-                    {
-                        "score": 1.0,
-                        "label": "frente"
-                    },
-                    {
-                        "score": 1.0,
-                        "label": "frente"
-                    },
-                    {
-                        "score": 0.80623734,
-                        "label": "frente 45 izquierda"
-                    },
-                    {
-                        "score": 0.80623734,
-                        "label": "frente 45 izquierda"
-                    }
-                ]
-            }
-        ],
-        "threshold": null
-    },
-    "error": null
-}
-
-```
----
-
-### 💬 4. Búsqueda por Texto (Multimodal)
-Permite realizar búsquedas semánticas escribiendo en lenguaje natural. El sistema traduce la consulta automáticamente para maximizar la precisión con el modelo CLIP.
-
-* **Método:** `POST`
-* **Ruta:** `/search/text`
-* **Formato:** `multipart/form-data`
-
-| Campo | Tipo | Descripción |
-| :--- | :--- | :--- |
-| `text` | `String` | Frase descriptiva (ej: *"fachada moderna con ladrillos a la vista"*). |
-
-
-#### ✅ Respuesta Exitosa (Data)
-
-
-```json
-{
-    "success": true,
-    "message": "Busqueda para 'casa con porton oscuro' realizada con éxito",
-    "data": {
-        "matches": [
-            {
-                "parent_id": "123e4567-e89b-12d3-a456-426614174000",
-                "images": [
-                    {
-                        "score": 0.2890824,
-                        "label": "frente 45 izquierda"
-                    },
-                    {
-                        "score": 0.2890824,
-                        "label": "frente 45 izquierda"
-                    }
-                ]
-            }
-        ],
-        "threshold": 0.28603229327314195
-    },
-    "error": null
-}
-```
-
----
-
-
-
-### 🗑️ 5. Eliminación de Entidad (Borrado en Cascada)
-Borra de forma permanente todas las imágenes y vectores asociados a un UUID específico en la base de datos de Qdrant.
-
-* **Método:** `DELETE`
-* **Ruta:** `/delete/{parent_id}`
-
-| Parámetro | Tipo | Ubicación | Descripción |
-| :--- | :--- | :--- | :--- |
-| `parent_id` | `UUID` | Path | El identificador único de la propiedad a eliminar. |
-
-#### ✅ Respuesta Exitosa
-
-```json
-{
-    "success": true,
-    "message": "Se eliminaron las imagenes asociadas a la entidad con UUID <parent_id>",
-    "data": null,
-    "error": null
-}
-```
-
-### ✏️ 6. Actualización de Etiqueta
-Permite actualizar la etiqueta asociada a un vector específico. Esta operación realiza un cambio en el `payload` del punto almacenado en Qdrant, manteniendo la integridad de la entidad a través del `parent_id`.
-
-* **Método:** `PATCH`
-* **Ruta:** `/update-label`
-* **Formato:** `application/json`
-
-| Campo | Tipo | Requerido | Descripción |
-| :--- | :--- | :--- | :--- |
-| `uuid` | `String` | Sí | El identificador único del vector (ID de la imagen). |
-| `new_label` | `String` | Sí | La nueva etiqueta que se asignará al vector. |
-
-#### 📥 Ejemplo de Request (JSON)
-```json
-{
-    "uuid": "d6f1c21d-4aae-4f83-99f5-b1996d906ed7",
-    "new_label": "frente renovado",
-}
-```
-#### ✅ Respuesta Exitosa
-```json
-{
-    "success": true,
-    "message": "Etiqueta y parent_id actualizados para d6f1c21d-4aae-4f83-99f5-b1996d906ed7",
-    "data": {
-        "uuid": "d6f1c21d-4aae-4f83-99f5-b1996d906ed7",
-        "label": "frente renovado",
-        "parent_id": "123e4567-e89b-12d3-a456-426614174000"
-    },
-    "error": null
-}
-```
-
-## 🚀 Pruebas con Postman
-
-Para facilitar el testeo y la integración de los endpoints, se incluye una colección de **Postman** lista para usar, ubicada en la raíz del proyecto.
-
-### 📦 Archivo de Colección
-* **Ruta:** `./consultas_postman.json`
-
-### 🛠️ Pasos para empezar:
-
-1. **Importar:** Abre Postman y arrastra el archivo JSON de la colección a tu espacio de trabajo.
-
-2. **colocar header de autenticacion:** en cada consulta, coloca en en el header x-api-key con el mismo valor que definiste en archivo .env 
-
-3. **Peticiones listas:** La colección incluye ejemplos preconfigurados con cuerpos `multipart/form-data` para:
-    * Ingesta de imágenes (con carga de archivos).
-    * Búsqueda genérica y filtrada.
-    * Búsqueda por texto.
-    * Eliminación por UUID.
+- El modelo CLIP (`model.encode`) y el modelo ANPR corren de forma **síncrona**, bloqueando el event loop de FastAPI bajo carga concurrente. Recomendado: envolverlos en threadpool (`anyio.to_thread.run_sync`).
+- `deep-translator` depende de un servicio no oficial (Google Translate) sin caché ni timeout propio — puede fallar o rate-limitear bajo volumen.
+- Verificar que `deep-translator` esté explícitamente en `requirements.txt` (se usa en `app/utils/traduction.py` pero no estaba listado en la versión original del archivo).

@@ -47,6 +47,7 @@ class VehicleImage(BaseModel):
         back_populates="image",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        order_by="ImageDetail.created_at",
     )
 
     filename: Mapped[str] = mapped_column(
@@ -61,7 +62,7 @@ class VehicleImage(BaseModel):
 
     embedding_status: Mapped[EmbeddingStatus] = mapped_column(
         Enum(EmbeddingStatus, name="embedding_status"),
-        default=EmbeddingStatus.PENDING,
+        default=EmbeddingStatus.PENDIENTE,
         nullable=False,
     )
 
