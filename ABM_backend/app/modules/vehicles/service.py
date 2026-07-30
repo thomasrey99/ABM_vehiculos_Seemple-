@@ -257,10 +257,14 @@ class VehicleService:
         (MissingGreenlet) si no se hace dentro de un await explícito.
         Los atributos escalares de `vehicle` (brand, model, color, id) sí
         son seguros de leer en este punto.
+
+        Cada imagen viaja junto con SUS PROPIOS `details` (relación 1-a-N
+        imagen→detalles), tal como espera `metadata.images` en el /ingest
+        del servicio de reconocimiento — ya no se manda una lista de
+        details aplanada a nivel vehículo.
         """
 
-        images_to_index: list[tuple[UploadFile, str]] = []
-        all_details: list[str] = []
+        images_to_index: list[tuple[UploadFile, str, list[str]]] = []
 
         for image_request in request.images:
             upload_file = files_map[image_request.filename]
@@ -270,11 +274,11 @@ class VehicleService:
                 image_request.label.value,
             )
 
-            images_to_index.append((upload_file, label))
-
-            all_details.extend(
+            image_details = [
                 detail.detail_type.value for detail in image_request.details
-            )
+            ]
+
+            images_to_index.append((upload_file, label, image_details))
 
         try:
             embedding_ids = await self.recognition_service.index_images(
@@ -283,7 +287,6 @@ class VehicleService:
                 brand=vehicle.brand,
                 model=vehicle.model,
                 color=vehicle.color or "",
-                details=all_details,
                 images=images_to_index,
             )
         except Exception:

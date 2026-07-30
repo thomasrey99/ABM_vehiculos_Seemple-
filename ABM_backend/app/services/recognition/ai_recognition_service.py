@@ -1,4 +1,5 @@
 import asyncio
+import json
 from uuid import UUID
 
 import httpx
@@ -24,23 +25,26 @@ class AIRecognitionService(RecognitionService):
         brand: str,
         model: str,
         color: str,
-        details: list[str],
-        images: list[tuple[UploadFile, str]],
+        images: list[tuple[UploadFile, str, list[str]]],
     ) -> list[str | None]:
 
+        metadata = {
+            "vehicle_id": str(vehicle_id),
+            "brand": brand,
+            "model": model,
+            "color": color,
+            "license_plate": license_plate,
+            "images": [
+                {"label": label, "details": details}
+                for _, label, details in images
+            ],
+        }
+
+        data = {"metadata": json.dumps(metadata)}
+
         files_payload = []
-        data = [
-            ("vehicle_id", str(vehicle_id)),
-            ("license_plate", license_plate),
-            ("brand", brand),
-            ("model", model),
-            ("color", color),
-        ]
 
-        for detail in details:
-            data.append(("details", detail))
-
-        for upload_file, label in images:
+        for upload_file, _, _ in images:
             await upload_file.seek(0)
             content = await upload_file.read()
 
@@ -50,7 +54,6 @@ class AIRecognitionService(RecognitionService):
                     (upload_file.filename, content, upload_file.content_type),
                 )
             )
-            data.append(("labels", label))
 
         headers = {"X-API-Key": settings.AI_SERVICE_API_KEY}
 
@@ -94,7 +97,7 @@ class AIRecognitionService(RecognitionService):
             return [None] * len(images)
 
         return [result.get("embedding_id") for result in results]
-
+    
     async def search_by_image(
         self,
         file: UploadFile,

@@ -18,22 +18,21 @@ class RecognitionService(ABC):
         brand: str,
         model: str,
         color: str,
-        details: list[str],
-        images: list[tuple[UploadFile, str]],
+        images: list[tuple[UploadFile, str, list[str]]],
     ) -> list[str | None]:
         """
         Envía las imágenes al servicio de reconocimiento para su indexación,
         junto con los metadatos del vehículo (license_plate, brand, model,
-        color, details). La patente ya no la detecta el servicio de IA por
-        ANPR en este endpoint: la provee el backend.
+        color). La patente ya no la detecta el servicio de IA por ANPR en
+        este endpoint: la provee el backend.
 
-        `details` es una lista plana con los detail_type de TODAS las
-        imágenes del vehículo (no está asociada a ninguna imagen puntual:
-        el servicio la adjunta igual a cada vector indexado).
+        `images` es una lista de tuplas (archivo, label, details) EN EL
+        ORDEN en que deben quedar asociadas en el `metadata.images` que
+        espera el servicio de IA. `details` es la lista de detail_type de
+        ESA imagen puntual (no del vehículo completo).
 
-        `images` es una lista de tuplas (archivo, label) en un orden
-        específico. Devuelve una lista de embedding_id (o None si esa
-        imagen no pudo indexarse) EN EL MISMO ORDEN que la lista de entrada.
+        Devuelve una lista de embedding_id (o None si esa imagen no pudo
+        indexarse) EN EL MISMO ORDEN que la lista de entrada.
         """
         ...
 
