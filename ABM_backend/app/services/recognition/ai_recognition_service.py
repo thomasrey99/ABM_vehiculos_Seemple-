@@ -219,3 +219,37 @@ class AIRecognitionService(RecognitionService):
         data = body.get("data") or {}
 
         return data.get("updated_images", 0)
+    
+    async def update_label(
+        self,
+        embedding_id: str,
+        new_label: str,
+    ) -> None:
+
+        headers = {"X-API-Key": settings.AI_SERVICE_API_KEY}
+
+        async with httpx.AsyncClient(
+            timeout=settings.AI_SERVICE_TIMEOUT,
+            trust_env=False,
+        ) as client:
+            response = await client.patch(
+                f"{settings.AI_SERVICE_URL}/update-label",
+                headers=headers,
+                json={
+                    "embedding_id": embedding_id,
+                    "new_label": new_label,
+                },
+            )
+
+        response.raise_for_status()
+
+        body = response.json()
+
+        if not body.get("success"):
+            raise RuntimeError(
+                body.get(
+                    "message",
+                    "El servicio de reconocimiento devolvió un error "
+                    "al actualizar el label.",
+                )
+            )

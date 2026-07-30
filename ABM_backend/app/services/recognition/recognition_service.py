@@ -71,3 +71,15 @@ class RecognitionService(ABC):
         reconocimiento.
         """
         ...
+        
+    @abstractmethod
+    async def update_label(
+        self,
+        embedding_id: str,
+        new_label: str,
+    ) -> None:
+        """
+        Actualiza el label (sector fotografiado) de una imagen ya
+        indexada en el servicio de reconocimiento.
+        """
+        ...

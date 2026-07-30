@@ -104,3 +104,18 @@ class VehicleRepository:
         await self.db.refresh(vehicle)
 
         return vehicle
+    
+    async def get_image_by_id(
+        self,
+        image_id: UUID,
+    ) -> VehicleImage | None:
+
+        stmt = (
+            select(VehicleImage)
+            .where(VehicleImage.id == image_id)
+            .options(selectinload(VehicleImage.details))
+        )
+
+        result = await self.db.execute(stmt)
+
+        return result.scalar_one_or_none()

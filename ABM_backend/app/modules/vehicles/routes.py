@@ -7,6 +7,9 @@ from app.modules.vehicles.controller import VehicleController
 from app.modules.vehicles.dependencies import (
     get_vehicle_controller,
 )
+from app.modules.vehicles.schemas.update_vehicle_image_label_request import (
+    UpdateVehicleImageLabelRequest,
+)
 from app.modules.vehicles.schemas.update_vehicle_request import UpdateVehicleRequest
 
 
@@ -65,3 +68,12 @@ async def update_vehicle(
     controller: VehicleController = Depends(get_vehicle_controller),
 ):
     return await controller.update(vehicle_id, request)
+
+@router.patch("/{vehicle_id}/images/{image_id}/label")
+async def update_vehicle_image_label(
+    vehicle_id: UUID,
+    image_id: UUID,
+    request: UpdateVehicleImageLabelRequest,
+    controller: VehicleController = Depends(get_vehicle_controller),
+):
+    return await controller.update_image_label(vehicle_id, image_id, request)

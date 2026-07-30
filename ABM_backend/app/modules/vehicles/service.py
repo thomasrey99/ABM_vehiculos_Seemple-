@@ -13,6 +13,7 @@ from app.exceptions.app_exceptions import (
     InternalServerException,
     NotFoundException,
 )
+
 from app.mappings.image_label_mapping import IMAGE_LABEL_TO_RECOGNITION_LABEL
 from app.models.image_detail import ImageDetail
 from app.models.vehicle import Vehicle
@@ -21,6 +22,9 @@ from app.modules.vehicles.repository import VehicleRepository
 from app.modules.vehicles.schemas.create_vehicle_request import (
     CreateImageDetailRequest,
     CreateVehicleRequest,
+)
+from app.modules.vehicles.schemas.update_vehicle_image_label_request import (
+    UpdateVehicleImageLabelRequest,
 )
 from app.modules.vehicles.schemas.update_vehicle_request import UpdateVehicleRequest
 from app.modules.vehicles.schemas.vehicle_response import VehicleResponse
@@ -579,6 +583,63 @@ class VehicleService:
                     "vehículo %s en el servicio de reconocimiento.",
                     vehicle.id,
                 )
+
+        vehicle = await self.vehicle_repository.get_by_id(vehicle_id)
+
+        return VehicleResponse.model_validate(vehicle)
+    
+    async def update_image_label(
+        self,
+        vehicle_id: UUID,
+        image_id: UUID,
+        request: UpdateVehicleImageLabelRequest,
+    ) -> VehicleResponse:
+        """
+        Actualiza el sector (label) de una imagen puntual. Si la imagen ya
+        está indexada en el servicio de reconocimiento (tiene
+        embedding_id), replica el cambio allá (best effort: si falla, se
+        loguea pero el cambio local no se revierte).
+        """
+
+        image = await self.vehicle_repository.get_image_by_id(image_id)
+
+        if image is None or image.vehicle_id != vehicle_id:
+            raise NotFoundException("Imagen no encontrada.")
+
+        image.label = request.label
+
+        try:
+            await self.db.commit()
+        except SQLAlchemyError as exc:
+            await self.db.rollback()
+            raise InternalServerException(
+                "Error al actualizar el label de la imagen."
+            ) from exc
+
+        if image.embedding_id:
+            recognition_label = IMAGE_LABEL_TO_RECOGNITION_LABEL.get(
+                request.label,
+                request.label.value,
+            )
+
+            try:
+                await self.recognition_service.update_label(
+                    embedding_id=image.embedding_id,
+                    new_label=recognition_label,
+                )
+            except Exception:
+                logger.exception(
+                    "No fue posible actualizar el label en el servicio "
+                    "de reconocimiento para la imagen %s.",
+                    image.id,
+                )
+        else:
+            logger.info(
+                "La imagen %s no tiene embedding_id (no está indexada "
+                "en el servicio de reconocimiento); solo se actualizó "
+                "el label localmente.",
+                image.id,
+            )
 
         vehicle = await self.vehicle_repository.get_by_id(vehicle_id)
 

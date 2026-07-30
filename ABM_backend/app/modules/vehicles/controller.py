@@ -3,6 +3,9 @@ from fastapi import UploadFile
 from app.modules.vehicles.schemas.create_vehicle_request import (
     CreateVehicleRequest,
 )
+from app.modules.vehicles.schemas.update_vehicle_image_label_request import (
+    UpdateVehicleImageLabelRequest,
+)
 from app.modules.vehicles.schemas.update_vehicle_request import UpdateVehicleRequest
 from app.modules.vehicles.service import VehicleService
 from app.shared.response import success_response
@@ -94,4 +97,22 @@ class VehicleController:
         return success_response(
             data=vehicle,
             message="Vehículo actualizado correctamente.",
+        )
+        
+    async def update_image_label(
+        self,
+        vehicle_id: UUID,
+        image_id: UUID,
+        request: UpdateVehicleImageLabelRequest,
+    ):
+
+        vehicle = await self.service.update_image_label(
+            vehicle_id=vehicle_id,
+            image_id=image_id,
+            request=request,
+        )
+
+        return success_response(
+            data=vehicle,
+            message="Label de la imagen actualizado correctamente.",
         )
