@@ -77,3 +77,12 @@ async def update_vehicle_image_label(
     controller: VehicleController = Depends(get_vehicle_controller),
 ):
     return await controller.update_image_label(vehicle_id, image_id, request)
+
+@router.patch("/{vehicle_id}/images/{image_id}/file")
+async def replace_vehicle_image(
+    vehicle_id: UUID,
+    image_id: UUID,
+    file: UploadFile = File(...),
+    controller: VehicleController = Depends(get_vehicle_controller),
+):
+    return await controller.replace_image(vehicle_id, image_id, file)

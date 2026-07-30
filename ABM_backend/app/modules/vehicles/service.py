@@ -644,3 +644,75 @@ class VehicleService:
         vehicle = await self.vehicle_repository.get_by_id(vehicle_id)
 
         return VehicleResponse.model_validate(vehicle)
+    
+    async def replace_image(
+        self,
+        vehicle_id: UUID,
+        image_id: UUID,
+        file: UploadFile,
+    ) -> VehicleResponse:
+        """
+        Reemplaza el archivo de una imagen puntual: sube el nuevo archivo
+        a Cloud Storage, borra el anterior, y si la imagen ya estaba
+        indexada en el servicio de reconocimiento, reemplaza también su
+        embedding allá (best effort: si falla, se loguea pero el archivo
+        ya quedó reemplazado localmente).
+        """
+
+        image = await self.vehicle_repository.get_image_by_id(image_id)
+
+        if image is None or image.vehicle_id != vehicle_id:
+            raise NotFoundException("Imagen no encontrada.")
+
+        old_image_url = image.image_url
+
+        uploaded_file = await self.storage_service.upload_file(
+            file=file,
+            destination=f"vehicles/{vehicle_id}",
+        )
+
+        image.filename = uploaded_file.filename
+        image.image_url = uploaded_file.url
+
+        try:
+            await self.db.commit()
+        except SQLAlchemyError as exc:
+            await self.db.rollback()
+            raise InternalServerException(
+                "Error al actualizar la imagen del vehículo."
+            ) from exc
+
+        try:
+            await self.storage_service.delete_file(old_image_url)
+        except Exception:
+            logger.exception(
+                "No fue posible eliminar el archivo anterior de "
+                "Cloud Storage para la imagen %s.",
+                image.id,
+            )
+
+        if image.embedding_id:
+            await file.seek(0)
+
+            try:
+                await self.recognition_service.replace_image(
+                    embedding_id=image.embedding_id,
+                    file=file,
+                )
+            except Exception:
+                logger.exception(
+                    "No fue posible reemplazar el embedding en el "
+                    "servicio de reconocimiento para la imagen %s.",
+                    image.id,
+                )
+        else:
+            logger.info(
+                "La imagen %s no tiene embedding_id (no está indexada "
+                "en el servicio de reconocimiento); solo se reemplazó "
+                "el archivo localmente.",
+                image.id,
+            )
+
+        vehicle = await self.vehicle_repository.get_by_id(vehicle_id)
+
+        return VehicleResponse.model_validate(vehicle)

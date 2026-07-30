@@ -116,3 +116,21 @@ class VehicleController:
             data=vehicle,
             message="Label de la imagen actualizado correctamente.",
         )
+        
+    async def replace_image(
+        self,
+        vehicle_id: UUID,
+        image_id: UUID,
+        file: UploadFile,
+    ):
+
+        vehicle = await self.service.replace_image(
+            vehicle_id=vehicle_id,
+            image_id=image_id,
+            file=file,
+        )
+
+        return success_response(
+            data=vehicle,
+            message="Imagen reemplazada correctamente.",
+        )

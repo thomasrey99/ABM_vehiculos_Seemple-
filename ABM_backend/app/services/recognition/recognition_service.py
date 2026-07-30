@@ -83,3 +83,17 @@ class RecognitionService(ABC):
         indexada en el servicio de reconocimiento.
         """
         ...
+        
+    @abstractmethod
+    async def replace_image(
+        self,
+        embedding_id: str,
+        file: UploadFile,
+    ) -> None:
+        """
+        Reemplaza la imagen (y por lo tanto el embedding) de un punto ya
+        indexado, conservando el resto de sus metadatos (vehicle_id,
+        label, brand, model, color, license_plate, details). No vuelve a
+        correr ANPR sobre la nueva imagen.
+        """
+        ...

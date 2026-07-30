@@ -253,3 +253,39 @@ class AIRecognitionService(RecognitionService):
                     "al actualizar el label.",
                 )
             )
+            
+    async def replace_image(
+        self,
+        embedding_id: str,
+        file: UploadFile,
+    ) -> None:
+
+        await file.seek(0)
+        content = await file.read()
+
+        files_payload = [
+            ("file", (file.filename, content, file.content_type)),
+        ]
+
+        headers = {"X-API-Key": settings.AI_SERVICE_API_KEY}
+
+        response = await asyncio.to_thread(
+            requests.patch,
+            f"{settings.AI_SERVICE_URL}/images/{embedding_id}",
+            headers=headers,
+            files=files_payload,
+            timeout=settings.AI_SERVICE_TIMEOUT,
+        )
+
+        response.raise_for_status()
+
+        body = response.json()
+
+        if not body.get("success"):
+            raise RuntimeError(
+                body.get(
+                    "message",
+                    "El servicio de reconocimiento devolvió un error "
+                    "al reemplazar la imagen.",
+                )
+            )
