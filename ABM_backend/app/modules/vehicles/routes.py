@@ -10,7 +10,9 @@ from app.modules.vehicles.dependencies import (
 from app.modules.vehicles.schemas.update_vehicle_image_label_request import (
     UpdateVehicleImageLabelRequest,
 )
-from app.modules.vehicles.schemas.update_vehicle_request import UpdateVehicleRequest
+from app.modules.vehicles.schemas.update_vehicle_request import (
+    UpdateVehicleRequest,
+)
 
 
 router = APIRouter(
@@ -40,6 +42,13 @@ async def search_vehicles_by_image(
 ):
     return await controller.search_by_image(file)
 
+@router.post("/search/text")
+async def search_vehicles_by_text(
+    text: str = Form(...),
+    controller: VehicleController = Depends(get_vehicle_controller),
+):
+    return await controller.search_by_text(text)
+
 @router.get("")
 async def get_all_vehicles(
     controller: VehicleController = Depends(get_vehicle_controller)
@@ -52,14 +61,6 @@ async def get_vehicle_by_id(
     controller: VehicleController = Depends(get_vehicle_controller)
 ):
     return await controller.get_by_id(vehicle_id)
-
-@router.delete("/{vehicle_id}")
-async def delete_vehicle(
-    vehicle_id: UUID,
-    controller: VehicleController = Depends(get_vehicle_controller)
-):
-    return await controller.delete(vehicle_id)
-
 
 @router.put("/{vehicle_id}")
 async def update_vehicle(
@@ -86,3 +87,18 @@ async def replace_vehicle_image(
     controller: VehicleController = Depends(get_vehicle_controller),
 ):
     return await controller.replace_image(vehicle_id, image_id, file)
+
+@router.delete("/{vehicle_id}")
+async def delete_vehicle(
+    vehicle_id: UUID,
+    controller: VehicleController = Depends(get_vehicle_controller)
+):
+    return await controller.delete(vehicle_id)
+
+@router.delete("/{vehicle_id}/images/{image_id}")
+async def delete_vehicle_image(
+    vehicle_id: UUID,
+    image_id: UUID,
+    controller: VehicleController = Depends(get_vehicle_controller),
+):
+    return await controller.delete_image(vehicle_id, image_id)

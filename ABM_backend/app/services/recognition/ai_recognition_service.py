@@ -97,7 +97,7 @@ class AIRecognitionService(RecognitionService):
             return [None] * len(images)
 
         return [result.get("embedding_id") for result in results]
-    
+
     async def search_by_image(
         self,
         file: UploadFile,
@@ -141,6 +141,58 @@ class AIRecognitionService(RecognitionService):
                     ImageMatchDetail(
                         score=image.get("score"),
                         label=image.get("label"),
+                        details=image.get("details", []),
+                    )
+                    for image in match.get("images", [])
+                ],
+            )
+            for match in data.get("matches", [])
+        ]
+
+        return ImageSearchResult(
+            matches=matches,
+            threshold=data.get("threshold"),
+        )
+
+    async def search_by_text(
+        self,
+        text: str,
+    ) -> ImageSearchResult:
+
+        headers = {"X-API-Key": settings.AI_SERVICE_API_KEY}
+
+        async with httpx.AsyncClient(
+            timeout=settings.AI_SERVICE_TIMEOUT,
+            trust_env=False,
+        ) as client:
+            response = await client.post(
+                f"{settings.AI_SERVICE_URL}/search/text",
+                headers=headers,
+                data={"text": text},
+            )
+
+        response.raise_for_status()
+
+        body = response.json()
+
+        if not body.get("success"):
+            raise RuntimeError(
+                body.get(
+                    "message",
+                    "El servicio de reconocimiento devolvió un error.",
+                )
+            )
+
+        data = body.get("data") or {}
+
+        matches = [
+            VehicleImageMatch(
+                vehicle_id=match.get("vehicle_id"),
+                images=[
+                    ImageMatchDetail(
+                        score=image.get("score"),
+                        label=image.get("label"),
+                        details=image.get("details", []),
                     )
                     for image in match.get("images", [])
                 ],
@@ -184,7 +236,36 @@ class AIRecognitionService(RecognitionService):
                     "al eliminar.",
                 )
             )
-            
+
+    async def delete_embedding(
+        self,
+        embedding_id: str,
+    ) -> None:
+
+        headers = {"X-API-Key": settings.AI_SERVICE_API_KEY}
+
+        async with httpx.AsyncClient(
+            timeout=settings.AI_SERVICE_TIMEOUT,
+            trust_env=False,
+        ) as client:
+            response = await client.delete(
+                f"{settings.AI_SERVICE_URL}/delete/embedding/{embedding_id}",
+                headers=headers,
+            )
+
+        response.raise_for_status()
+
+        body = response.json()
+
+        if not body.get("success"):
+            raise RuntimeError(
+                body.get(
+                    "message",
+                    "El servicio de reconocimiento devolvió un error "
+                    "al eliminar el embedding.",
+                )
+            )
+
     async def update_vehicle_metadata(
         self,
         vehicle_id: UUID,
@@ -219,7 +300,7 @@ class AIRecognitionService(RecognitionService):
         data = body.get("data") or {}
 
         return data.get("updated_images", 0)
-    
+
     async def update_label(
         self,
         embedding_id: str,
@@ -253,7 +334,7 @@ class AIRecognitionService(RecognitionService):
                     "al actualizar el label.",
                 )
             )
-            
+
     async def replace_image(
         self,
         embedding_id: str,
@@ -269,6 +350,8 @@ class AIRecognitionService(RecognitionService):
 
         headers = {"X-API-Key": settings.AI_SERVICE_API_KEY}
 
+        # Multipart: mismo workaround que en index_images (requests en
+        # thread aparte por el bug de httpx/h11 en Python 3.14).
         response = await asyncio.to_thread(
             requests.patch,
             f"{settings.AI_SERVICE_URL}/images/{embedding_id}",

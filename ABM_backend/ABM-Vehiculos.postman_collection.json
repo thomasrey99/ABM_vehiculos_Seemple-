@@ -17,6 +17,10 @@
     {
       "key": "vehicleId",
       "value": ""
+    },
+    {
+      "key": "imageId",
+      "value": ""
     }
   ],
   "item": [
@@ -292,7 +296,8 @@
                   "  if (r.data.images && r.data.images.length > 0) {",
                   "    pm.expect(r.data.images[0]).to.have.property('embedding_status');",
                   "  }",
-                  "});"
+                  "});",
+                  "if (r.data && r.data.images && r.data.images.length > 0) { pm.collectionVariables.set('imageId', r.data.images[0].id); }"
                 ]
               }
             }
@@ -399,6 +404,302 @@
           ]
         },
         {
+          "name": "Update Vehicle - Success",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/{{vehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicleId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brand\": \"Toyota\",\n  \"model\": \"Corolla\",\n  \"color\": \"Gris\",\n  \"observations\": \"Actualizado via Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Actualiza parcialmente los metadatos del vehiculo. Si cambian brand/model/color/license_plate, se replica el cambio (best effort) en el servicio de reconocimiento via PATCH /vehicles/{vehicle_id}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "let r = pm.response.json();",
+                  "pm.test('success true', function () { pm.expect(r.success).to.be.true; });",
+                  "pm.test('brand actualizada', function () { pm.expect(r.data.brand).to.eql('Toyota'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Vehicle - Patente Duplicada (409)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/{{vehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicleId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"license_plate\": \"AA123BB\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Devuelve 409 si la patente enviada ya pertenece a otro vehiculo distinto del que se esta actualizando."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Vehicle - Sin Campos (400)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/{{vehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicleId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Devuelve 400 si no se envia ningun campo para actualizar."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Vehicle Image Label - Success",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/{{vehicleId}}/images/{{imageId}}/label",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicleId}}",
+                "images",
+                "{{imageId}}",
+                "label"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"LATERAL_IZQUIERDA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Actualiza el sector (label) de una imagen puntual. Si la imagen ya tiene embedding_id, replica el cambio (best effort) en el servicio de reconocimiento via PATCH /update-label, traduciendo el enum con IMAGE_LABEL_TO_RECOGNITION_LABEL."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "let r = pm.response.json();",
+                  "pm.test('success true', function () { pm.expect(r.success).to.be.true; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Vehicle Image Label - Imagen Inexistente (404)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/{{vehicleId}}/images/00000000-0000-0000-0000-000000000000/label",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicleId}}",
+                "images",
+                "00000000-0000-0000-0000-000000000000",
+                "label"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"ATRAS\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Replace Vehicle Image - Success",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/{{vehicleId}}/images/{{imageId}}/file",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicleId}}",
+                "images",
+                "{{imageId}}",
+                "file"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "description": "Reemplaza el archivo de una imagen puntual: sube el nuevo archivo a Cloud Storage, borra el anterior, y si la imagen tiene embedding_id, reemplaza tambien el embedding en el servicio de reconocimiento via PATCH /images/{embedding_id}."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Adjunta un archivo de imagen en el campo 'file' antes de ejecutar."
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "let r = pm.response.json();",
+                  "pm.test('success true', function () { pm.expect(r.success).to.be.true; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Delete Vehicle",
           "request": {
             "method": "DELETE",
@@ -430,11 +731,80 @@
               }
             }
           ]
+        },
+        {
+          "name": "Delete Vehicle Image - Success",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/{{vehicleId}}/images/{{imageId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicleId}}",
+                "images",
+                "{{imageId}}"
+              ]
+            },
+            "description": "Borrado en modo estricto de una imagen puntual: primero elimina el embedding en el servicio de reconocimiento (si existe) y el archivo en Cloud Storage; solo si ambos pasos externos funcionan, borra la imagen de la base."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Vehicle Image - Imagen Inexistente (404)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/{{vehicleId}}/images/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicleId}}",
+                "images",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
-      "name": "Búsqueda por Imagen",
+      "name": "Búsqueda por Imagen y Texto",
       "item": [
         {
           "name": "Search Vehicles By Image",
@@ -533,6 +903,97 @@
               "script": {
                 "exec": [
                   "pm.test('Status 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search Vehicles By Text",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/search/text",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "search",
+                "text"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "text",
+                  "type": "text",
+                  "value": "vehiculo marca toyota modelo corolla color blanco con rayon en el frente"
+                }
+              ]
+            },
+            "description": "Busqueda semantica hibrida por texto en lenguaje natural, delegada a POST /search/text del servicio de reconocimiento (similitud visual-semantica via CLIP + boost por keywords)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "let r = pm.response.json();",
+                  "pm.test('success true', function () { pm.expect(r.success).to.be.true; });",
+                  "pm.test('trae matches', function () { pm.expect(r.data).to.have.property('matches'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search Vehicles By Text - Texto Vacio (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/search/text",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "search",
+                "text"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "text",
+                  "type": "text",
+                  "value": "   "
+                }
+              ]
+            },
+            "description": "Devuelve 400 si el texto de busqueda esta vacio o solo contiene espacios."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', function () { pm.response.to.have.status(400); });"
                 ]
               }
             }

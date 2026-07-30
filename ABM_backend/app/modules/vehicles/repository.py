@@ -29,6 +29,17 @@ class VehicleRepository:
 
         return vehicle
 
+    async def update(
+        self,
+        vehicle: Vehicle,
+    ) -> Vehicle:
+
+        await self.db.flush()
+
+        await self.db.refresh(vehicle)
+
+        return vehicle
+
     async def get_by_id(
         self,
         vehicle_id: UUID,
@@ -87,24 +98,6 @@ class VehicleRepository:
 
         return list(result.scalars().all())
 
-    async def delete(
-        self,
-        vehicle: Vehicle,
-    ) -> None:
-
-        await self.db.delete(vehicle)
-        
-    async def update(
-        self,
-        vehicle: Vehicle,
-    ) -> Vehicle:
-
-        await self.db.flush()
-
-        await self.db.refresh(vehicle)
-
-        return vehicle
-    
     async def get_image_by_id(
         self,
         image_id: UUID,
@@ -119,3 +112,17 @@ class VehicleRepository:
         result = await self.db.execute(stmt)
 
         return result.scalar_one_or_none()
+
+    async def delete(
+        self,
+        vehicle: Vehicle,
+    ) -> None:
+
+        await self.db.delete(vehicle)
+
+    async def delete_image(
+        self,
+        image: VehicleImage,
+    ) -> None:
+
+        await self.db.delete(image)

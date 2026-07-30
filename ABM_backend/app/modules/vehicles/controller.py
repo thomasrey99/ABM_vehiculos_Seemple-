@@ -6,7 +6,9 @@ from app.modules.vehicles.schemas.create_vehicle_request import (
 from app.modules.vehicles.schemas.update_vehicle_image_label_request import (
     UpdateVehicleImageLabelRequest,
 )
-from app.modules.vehicles.schemas.update_vehicle_request import UpdateVehicleRequest
+from app.modules.vehicles.schemas.update_vehicle_request import (
+    UpdateVehicleRequest,
+)
 from app.modules.vehicles.service import VehicleService
 from app.shared.response import success_response
 
@@ -63,26 +65,6 @@ class VehicleController:
             message="Vehículos obtenidos correctamente."
         )
 
-    async def delete(
-        self,
-        vehicle_id: UUID
-    ):
-        await self.service.delete(vehicle_id)
-
-        return success_response(
-            message="Vehiculo eliminado correctamente.",
-        )
-
-    async def search_by_image(
-        self,
-        file: UploadFile,
-    ):
-        result = await self.service.search_by_image(file)
-
-        return success_response(
-            data=result.model_dump(mode="json"),
-            message="Búsqueda por imagen completada.",
-        )
     async def update(
         self,
         vehicle_id: UUID,
@@ -98,7 +80,7 @@ class VehicleController:
             data=vehicle,
             message="Vehículo actualizado correctamente.",
         )
-        
+
     async def update_image_label(
         self,
         vehicle_id: UUID,
@@ -116,7 +98,7 @@ class VehicleController:
             data=vehicle,
             message="Label de la imagen actualizado correctamente.",
         )
-        
+
     async def replace_image(
         self,
         vehicle_id: UUID,
@@ -133,4 +115,51 @@ class VehicleController:
         return success_response(
             data=vehicle,
             message="Imagen reemplazada correctamente.",
+        )
+
+    async def delete(
+        self,
+        vehicle_id: UUID
+    ):
+        await self.service.delete(vehicle_id)
+
+        return success_response(
+            message="Vehiculo eliminado correctamente.",
+        )
+
+    async def delete_image(
+        self,
+        vehicle_id: UUID,
+        image_id: UUID,
+    ):
+
+        await self.service.delete_image(
+            vehicle_id=vehicle_id,
+            image_id=image_id,
+        )
+
+        return success_response(
+            message="Imagen eliminada correctamente.",
+        )
+
+    async def search_by_image(
+        self,
+        file: UploadFile,
+    ):
+        result = await self.service.search_by_image(file)
+
+        return success_response(
+            data=result.model_dump(mode="json"),
+            message="Búsqueda por imagen completada.",
+        )
+
+    async def search_by_text(
+        self,
+        text: str,
+    ):
+        result = await self.service.search_by_text(text)
+
+        return success_response(
+            data=result.model_dump(mode="json"),
+            message="Búsqueda por texto completada.",
         )

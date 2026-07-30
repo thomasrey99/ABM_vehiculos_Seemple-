@@ -47,6 +47,18 @@ class RecognitionService(ABC):
         ...
 
     @abstractmethod
+    async def search_by_text(
+        self,
+        text: str,
+    ) -> ImageSearchResult:
+        """
+        Busca coincidencias mediante una consulta en lenguaje natural,
+        combinando similitud visual-semántica (CLIP) y boost por
+        coincidencia de keywords en la metadata.
+        """
+        ...
+
+    @abstractmethod
     async def delete_by_id(
         self,
         vehicle_id: UUID,
@@ -56,7 +68,19 @@ class RecognitionService(ABC):
         servicio de reconocimiento (Qdrant).
         """
         ...
-    
+
+    @abstractmethod
+    async def delete_embedding(
+        self,
+        embedding_id: str,
+    ) -> None:
+        """
+        Elimina una única imagen (embedding) puntual en el servicio de
+        reconocimiento, sin afectar al resto de las imágenes del mismo
+        vehículo.
+        """
+        ...
+
     @abstractmethod
     async def update_vehicle_metadata(
         self,
@@ -71,7 +95,7 @@ class RecognitionService(ABC):
         reconocimiento.
         """
         ...
-        
+
     @abstractmethod
     async def update_label(
         self,
@@ -83,7 +107,7 @@ class RecognitionService(ABC):
         indexada en el servicio de reconocimiento.
         """
         ...
-        
+
     @abstractmethod
     async def replace_image(
         self,

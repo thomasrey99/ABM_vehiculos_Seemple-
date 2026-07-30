@@ -13,7 +13,6 @@ from app.exceptions.app_exceptions import (
     InternalServerException,
     NotFoundException,
 )
-
 from app.mappings.image_label_mapping import IMAGE_LABEL_TO_RECOGNITION_LABEL
 from app.models.image_detail import ImageDetail
 from app.models.vehicle import Vehicle
@@ -26,12 +25,17 @@ from app.modules.vehicles.schemas.create_vehicle_request import (
 from app.modules.vehicles.schemas.update_vehicle_image_label_request import (
     UpdateVehicleImageLabelRequest,
 )
-from app.modules.vehicles.schemas.update_vehicle_request import UpdateVehicleRequest
+from app.modules.vehicles.schemas.update_vehicle_request import (
+    UpdateVehicleRequest,
+)
 from app.modules.vehicles.schemas.vehicle_response import VehicleResponse
 from app.modules.vehicles.schemas.vehicle_search_response import (
     MatchedImageResponse,
     VehicleSearchMatchResponse,
     VehicleSearchResponse,
+)
+from app.services.recognition.models.image_search_result import (
+    ImageSearchResult,
 )
 from app.services.recognition.recognition_service import RecognitionService
 from app.services.storage.storage_service import StorageService
@@ -363,128 +367,6 @@ class VehicleService:
 
         return [VehicleResponse.model_validate(vehicle) for vehicle in vehicles]
 
-    async def delete(
-        self,
-        vehicle_id: UUID,
-    ) -> None:
-        """
-        Elimina un vehículo. Modo estricto: primero se limpian los
-        recursos externos (vectores en el servicio de reconocimiento e
-        imágenes en Cloud Storage); si cualquiera de los dos falla, se
-        cancela toda la operación y el vehículo NO se borra de la base.
-        """
-
-        vehicle = await self.vehicle_repository.get_by_id(vehicle_id)
-
-        if vehicle is None:
-            raise NotFoundException("Vehículo no encontrado.")
-
-        try:
-            await self.recognition_service.delete_by_id(vehicle_id)
-        except Exception as exc:
-            logger.exception(
-                "No fue posible eliminar los embeddings del vehículo "
-                "%s en el servicio de reconocimiento. Se cancela la "
-                "eliminación.",
-                vehicle_id,
-            )
-            raise InternalServerException(
-                "No fue posible eliminar los datos del vehículo en el "
-                "servicio de reconocimiento."
-            ) from exc
-
-        try:
-            for image in vehicle.images:
-                await self.storage_service.delete_file(image.image_url)
-        except Exception as exc:
-            logger.exception(
-                "No fue posible eliminar las imágenes del vehículo %s "
-                "en Cloud Storage. Se cancela la eliminación.",
-                vehicle_id,
-            )
-            raise InternalServerException(
-                "No fue posible eliminar las imágenes del vehículo en "
-                "Cloud Storage."
-            ) from exc
-
-        await self.vehicle_repository.delete(vehicle)
-
-        await self.db.commit()
-
-    async def search_by_image(
-            self,
-            file: UploadFile,
-        ) -> VehicleSearchResponse:
-        """
-        Busca vehículos visualmente similares a la imagen recibida,
-        delegando la búsqueda vectorial al servicio de reconocimiento
-        y resolviendo cada vehicle_id devuelto contra nuestra base.
-        """
-
-        try:
-            result = await self.recognition_service.search_by_image(file)
-        except Exception as exc:
-            logger.exception(
-                "Falló la búsqueda por imagen en el servicio de "
-                "reconocimiento."
-            )
-            raise InternalServerException(
-                "No fue posible completar la búsqueda por imagen."
-            ) from exc
-
-        matches: list[VehicleSearchMatchResponse] = []
-
-        for match in result.matches:
-            try:
-                vehicle_id = UUID(match.vehicle_id)
-            except (ValueError, TypeError):
-                logger.warning(
-                    "El servicio de reconocimiento devolvió un "
-                    "vehicle_id inválido: %s",
-                    match.vehicle_id,
-                )
-                continue
-
-            vehicle = await self.vehicle_repository.get_by_id(vehicle_id)
-
-            if vehicle is None:
-                # El vector sigue indexado en Qdrant pero el vehículo ya
-                # no existe en nuestra base (por ejemplo, fue eliminado).
-                logger.warning(
-                    "El servicio de reconocimiento encontró coincidencias "
-                    "para un vehículo que ya no existe: %s",
-                    vehicle_id,
-                )
-                continue
-
-            if not match.images:
-                continue
-
-            best_score = max(image.score for image in match.images)
-
-            matches.append(
-                VehicleSearchMatchResponse(
-                    vehicle=VehicleResponse.model_validate(vehicle),
-                    score=best_score,
-                    matched_images=[
-                        MatchedImageResponse(
-                            label=image.label,
-                            score=image.score,
-                            details=image.details,
-                        )
-                        for image in match.images
-                    ],
-                )
-            )
-
-        # No reordenamos ni filtramos acá: el servicio de reconocimiento ya
-        # aplica su propio umbral dinámico y devuelve los matches en el
-        # orden de relevancia que corresponde.
-        return VehicleSearchResponse(
-            threshold=result.threshold,
-            matches=matches,
-        )
-        
     async def update(
         self,
         vehicle_id: UUID,
@@ -587,7 +469,7 @@ class VehicleService:
         vehicle = await self.vehicle_repository.get_by_id(vehicle_id)
 
         return VehicleResponse.model_validate(vehicle)
-    
+
     async def update_image_label(
         self,
         vehicle_id: UUID,
@@ -644,7 +526,7 @@ class VehicleService:
         vehicle = await self.vehicle_repository.get_by_id(vehicle_id)
 
         return VehicleResponse.model_validate(vehicle)
-    
+
     async def replace_image(
         self,
         vehicle_id: UUID,
@@ -716,3 +598,209 @@ class VehicleService:
         vehicle = await self.vehicle_repository.get_by_id(vehicle_id)
 
         return VehicleResponse.model_validate(vehicle)
+
+    async def delete(
+        self,
+        vehicle_id: UUID,
+    ) -> None:
+        """
+        Elimina un vehículo. Modo estricto: primero se limpian los
+        recursos externos (vectores en el servicio de reconocimiento e
+        imágenes en Cloud Storage); si cualquiera de los dos falla, se
+        cancela toda la operación y el vehículo NO se borra de la base.
+        """
+
+        vehicle = await self.vehicle_repository.get_by_id(vehicle_id)
+
+        if vehicle is None:
+            raise NotFoundException("Vehículo no encontrado.")
+
+        try:
+            await self.recognition_service.delete_by_id(vehicle_id)
+        except Exception as exc:
+            logger.exception(
+                "No fue posible eliminar los embeddings del vehículo "
+                "%s en el servicio de reconocimiento. Se cancela la "
+                "eliminación.",
+                vehicle_id,
+            )
+            raise InternalServerException(
+                "No fue posible eliminar los datos del vehículo en el "
+                "servicio de reconocimiento."
+            ) from exc
+
+        try:
+            for image in vehicle.images:
+                await self.storage_service.delete_file(image.image_url)
+        except Exception as exc:
+            logger.exception(
+                "No fue posible eliminar las imágenes del vehículo %s "
+                "en Cloud Storage. Se cancela la eliminación.",
+                vehicle_id,
+            )
+            raise InternalServerException(
+                "No fue posible eliminar las imágenes del vehículo en "
+                "Cloud Storage."
+            ) from exc
+
+        await self.vehicle_repository.delete(vehicle)
+
+        await self.db.commit()
+
+    async def delete_image(
+        self,
+        vehicle_id: UUID,
+        image_id: UUID,
+    ) -> None:
+        """
+        Elimina una imagen puntual de un vehículo. Modo estricto, igual
+        que el borrado de vehículo completo: primero se limpian los
+        recursos externos (embedding en el servicio de reconocimiento e
+        imagen en Cloud Storage); si cualquiera de los dos falla, se
+        cancela la operación y la imagen NO se borra de la base.
+        """
+
+        image = await self.vehicle_repository.get_image_by_id(image_id)
+
+        if image is None or image.vehicle_id != vehicle_id:
+            raise NotFoundException("Imagen no encontrada.")
+
+        if image.embedding_id:
+            try:
+                await self.recognition_service.delete_embedding(
+                    image.embedding_id
+                )
+            except Exception as exc:
+                logger.exception(
+                    "No fue posible eliminar el embedding %s en el "
+                    "servicio de reconocimiento. Se cancela la "
+                    "eliminación de la imagen.",
+                    image.embedding_id,
+                )
+                raise InternalServerException(
+                    "No fue posible eliminar la imagen en el servicio "
+                    "de reconocimiento."
+                ) from exc
+
+        try:
+            await self.storage_service.delete_file(image.image_url)
+        except Exception as exc:
+            logger.exception(
+                "No fue posible eliminar el archivo de Cloud Storage "
+                "para la imagen %s. Se cancela la eliminación.",
+                image.id,
+            )
+            raise InternalServerException(
+                "No fue posible eliminar la imagen en Cloud Storage."
+            ) from exc
+
+        await self.vehicle_repository.delete_image(image)
+
+        await self.db.commit()
+
+    async def _build_search_response(
+        self,
+        result: ImageSearchResult,
+    ) -> VehicleSearchResponse:
+
+        matches: list[VehicleSearchMatchResponse] = []
+
+        for match in result.matches:
+            try:
+                vehicle_id = UUID(match.vehicle_id)
+            except (ValueError, TypeError):
+                logger.warning(
+                    "El servicio de reconocimiento devolvió un "
+                    "vehicle_id inválido: %s",
+                    match.vehicle_id,
+                )
+                continue
+
+            vehicle = await self.vehicle_repository.get_by_id(vehicle_id)
+
+            if vehicle is None:
+                # El vector sigue indexado en Qdrant pero el vehículo ya
+                # no existe en nuestra base (por ejemplo, fue eliminado).
+                logger.warning(
+                    "El servicio de reconocimiento encontró coincidencias "
+                    "para un vehículo que ya no existe: %s",
+                    vehicle_id,
+                )
+                continue
+
+            if not match.images:
+                continue
+
+            best_score = max(image.score for image in match.images)
+
+            matches.append(
+                VehicleSearchMatchResponse(
+                    vehicle=VehicleResponse.model_validate(vehicle),
+                    score=best_score,
+                    matched_images=[
+                        MatchedImageResponse(
+                            label=image.label,
+                            score=image.score,
+                            details=image.details or [],
+                        )
+                        for image in match.images
+                    ],
+                )
+            )
+
+        # No reordenamos ni filtramos acá: el servicio de reconocimiento ya
+        # aplica su propio umbral dinámico y devuelve los matches en el
+        # orden de relevancia que corresponde.
+        return VehicleSearchResponse(
+            threshold=result.threshold,
+            matches=matches,
+        )
+
+    async def search_by_image(
+        self,
+        file: UploadFile,
+    ) -> VehicleSearchResponse:
+        """
+        Busca vehículos visualmente similares a la imagen recibida,
+        delegando la búsqueda vectorial al servicio de reconocimiento
+        y resolviendo cada vehicle_id devuelto contra nuestra base.
+        """
+
+        try:
+            result = await self.recognition_service.search_by_image(file)
+        except Exception as exc:
+            logger.exception(
+                "Falló la búsqueda por imagen en el servicio de "
+                "reconocimiento."
+            )
+            raise InternalServerException(
+                "No fue posible completar la búsqueda por imagen."
+            ) from exc
+
+        return await self._build_search_response(result)
+
+    async def search_by_text(
+        self,
+        text: str,
+    ) -> VehicleSearchResponse:
+        """
+        Busca vehículos mediante una consulta en lenguaje natural,
+        delegando la búsqueda híbrida al servicio de reconocimiento
+        y resolviendo cada vehicle_id devuelto contra nuestra base.
+        """
+
+        if not text or not text.strip():
+            raise BadRequestException("El texto de búsqueda no puede estar vacío.")
+
+        try:
+            result = await self.recognition_service.search_by_text(text)
+        except Exception as exc:
+            logger.exception(
+                "Falló la búsqueda por texto en el servicio de "
+                "reconocimiento."
+            )
+            raise InternalServerException(
+                "No fue posible completar la búsqueda por texto."
+            ) from exc
+
+        return await self._build_search_response(result)
