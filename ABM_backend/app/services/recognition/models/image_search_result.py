@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 class ImageMatchDetail:
     score: float
     label: str
+    details: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

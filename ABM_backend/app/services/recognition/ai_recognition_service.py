@@ -141,6 +141,7 @@ class AIRecognitionService(RecognitionService):
                     ImageMatchDetail(
                         score=image.get("score"),
                         label=image.get("label"),
+                        details=image.get("details", []),
                     )
                     for image in match.get("images", [])
                 ],

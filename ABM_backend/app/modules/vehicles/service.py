@@ -407,9 +407,9 @@ class VehicleService:
         await self.db.commit()
 
     async def search_by_image(
-        self,
-        file: UploadFile,
-    ) -> VehicleSearchResponse:
+            self,
+            file: UploadFile,
+        ) -> VehicleSearchResponse:
         """
         Busca vehículos visualmente similares a la imagen recibida,
         delegando la búsqueda vectorial al servicio de reconocimiento
@@ -465,6 +465,7 @@ class VehicleService:
                         MatchedImageResponse(
                             label=image.label,
                             score=image.score,
+                            details=image.details,
                         )
                         for image in match.images
                     ],
