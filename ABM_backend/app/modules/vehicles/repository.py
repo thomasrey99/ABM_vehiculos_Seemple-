@@ -93,3 +93,14 @@ class VehicleRepository:
     ) -> None:
 
         await self.db.delete(vehicle)
+        
+    async def update(
+        self,
+        vehicle: Vehicle,
+    ) -> Vehicle:
+
+        await self.db.flush()
+
+        await self.db.refresh(vehicle)
+
+        return vehicle

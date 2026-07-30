@@ -141,7 +141,6 @@ class AIRecognitionService(RecognitionService):
                     ImageMatchDetail(
                         score=image.get("score"),
                         label=image.get("label"),
-                        details=image.get("details", []),
                     )
                     for image in match.get("images", [])
                 ],
@@ -185,3 +184,38 @@ class AIRecognitionService(RecognitionService):
                     "al eliminar.",
                 )
             )
+            
+    async def update_vehicle_metadata(
+        self,
+        vehicle_id: UUID,
+        fields: dict[str, str],
+    ) -> int:
+
+        headers = {"X-API-Key": settings.AI_SERVICE_API_KEY}
+
+        async with httpx.AsyncClient(
+            timeout=settings.AI_SERVICE_TIMEOUT,
+            trust_env=False,
+        ) as client:
+            response = await client.patch(
+                f"{settings.AI_SERVICE_URL}/vehicles/{vehicle_id}",
+                headers=headers,
+                json=fields,
+            )
+
+        response.raise_for_status()
+
+        body = response.json()
+
+        if not body.get("success"):
+            raise RuntimeError(
+                body.get(
+                    "message",
+                    "El servicio de reconocimiento devolvió un error "
+                    "al actualizar metadatos.",
+                )
+            )
+
+        data = body.get("data") or {}
+
+        return data.get("updated_images", 0)

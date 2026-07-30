@@ -3,6 +3,7 @@ from fastapi import UploadFile
 from app.modules.vehicles.schemas.create_vehicle_request import (
     CreateVehicleRequest,
 )
+from app.modules.vehicles.schemas.update_vehicle_request import UpdateVehicleRequest
 from app.modules.vehicles.service import VehicleService
 from app.shared.response import success_response
 
@@ -78,4 +79,19 @@ class VehicleController:
         return success_response(
             data=result.model_dump(mode="json"),
             message="Búsqueda por imagen completada.",
+        )
+    async def update(
+        self,
+        vehicle_id: UUID,
+        request: UpdateVehicleRequest,
+    ):
+
+        vehicle = await self.service.update(
+            vehicle_id=vehicle_id,
+            request=request,
+        )
+
+        return success_response(
+            data=vehicle,
+            message="Vehículo actualizado correctamente.",
         )

@@ -7,6 +7,7 @@ from app.modules.vehicles.controller import VehicleController
 from app.modules.vehicles.dependencies import (
     get_vehicle_controller,
 )
+from app.modules.vehicles.schemas.update_vehicle_request import UpdateVehicleRequest
 
 
 router = APIRouter(
@@ -55,3 +56,12 @@ async def delete_vehicle(
     controller: VehicleController = Depends(get_vehicle_controller)
 ):
     return await controller.delete(vehicle_id)
+
+
+@router.put("/{vehicle_id}")
+async def update_vehicle(
+    vehicle_id: UUID,
+    request: UpdateVehicleRequest,
+    controller: VehicleController = Depends(get_vehicle_controller),
+):
+    return await controller.update(vehicle_id, request)

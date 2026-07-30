@@ -56,3 +56,18 @@ class RecognitionService(ABC):
         servicio de reconocimiento (Qdrant).
         """
         ...
+    
+    @abstractmethod
+    async def update_vehicle_metadata(
+        self,
+        vehicle_id: UUID,
+        fields: dict[str, str],
+    ) -> int:
+        """
+        Actualiza los metadatos compartidos (brand/model/color/
+        license_plate) de todas las imágenes indexadas de un vehículo.
+        `fields` contiene únicamente los campos que cambiaron. Devuelve
+        la cantidad de imágenes actualizadas en el servicio de
+        reconocimiento.
+        """
+        ...

@@ -22,6 +22,7 @@ from app.modules.vehicles.schemas.create_vehicle_request import (
     CreateImageDetailRequest,
     CreateVehicleRequest,
 )
+from app.modules.vehicles.schemas.update_vehicle_request import UpdateVehicleRequest
 from app.modules.vehicles.schemas.vehicle_response import VehicleResponse
 from app.modules.vehicles.schemas.vehicle_search_response import (
     MatchedImageResponse,
@@ -479,3 +480,106 @@ class VehicleService:
             threshold=result.threshold,
             matches=matches,
         )
+        
+    async def update(
+        self,
+        vehicle_id: UUID,
+        request: UpdateVehicleRequest,
+    ) -> VehicleResponse:
+        """
+        Actualiza parcialmente un vehículo. Si cambian brand/model/color/
+        license_plate, esos campos también se replican en el servicio de
+        reconocimiento (best effort: si falla, se loguea pero no se
+        revierte la actualización ya persistida en nuestra base).
+        """
+
+        vehicle = await self.vehicle_repository.get_by_id(vehicle_id)
+
+        if vehicle is None:
+            raise NotFoundException("Vehículo no encontrado.")
+
+        update_data = request.model_dump(exclude_unset=True)
+
+        if not update_data:
+            raise BadRequestException(
+                "Debe enviarse al menos un campo para actualizar."
+            )
+
+        recognition_fields: dict[str, str] = {}
+
+        if update_data.get("license_plate") is not None:
+            new_plate = update_data["license_plate"].upper().strip()
+
+            if new_plate != vehicle.license_plate:
+                existing = await self.vehicle_repository.get_by_license_plate(
+                    new_plate
+                )
+
+                if existing and existing.id != vehicle.id:
+                    raise ConflictException(
+                        "Ya existe un vehículo con esa patente."
+                    )
+
+                vehicle.license_plate = new_plate
+                recognition_fields["license_plate"] = new_plate
+
+        if update_data.get("brand") is not None:
+            vehicle.brand = update_data["brand"].strip()
+            recognition_fields["brand"] = vehicle.brand
+
+        if update_data.get("model") is not None:
+            vehicle.model = update_data["model"].strip()
+            recognition_fields["model"] = vehicle.model
+
+        if "color" in update_data:
+            vehicle.color = (
+                update_data["color"].strip() if update_data["color"] else None
+            )
+            if vehicle.color is not None:
+                recognition_fields["color"] = vehicle.color
+
+        if "year" in update_data:
+            vehicle.year = update_data["year"]
+
+        if "insurance_policy" in update_data:
+            vehicle.insurance_policy = (
+                update_data["insurance_policy"].strip()
+                if update_data["insurance_policy"]
+                else None
+            )
+
+        if "observations" in update_data:
+            vehicle.observations = (
+                update_data["observations"].strip()
+                if update_data["observations"]
+                else None
+            )
+
+        if update_data.get("is_active") is not None:
+            vehicle.is_active = update_data["is_active"]
+
+        try:
+            await self.vehicle_repository.update(vehicle)
+            await self.db.commit()
+        except SQLAlchemyError as exc:
+            await self.db.rollback()
+            raise InternalServerException(
+                "Error al actualizar el vehículo."
+            ) from exc
+
+        if recognition_fields:
+            try:
+                await self.recognition_service.update_vehicle_metadata(
+                    vehicle_id=vehicle.id,
+                    fields=recognition_fields,
+                )
+            except Exception:
+                logger.exception(
+                    "No fue posible actualizar los metadatos del "
+                    "vehículo %s en el servicio de reconocimiento.",
+                    vehicle.id,
+                )
+
+        vehicle = await self.vehicle_repository.get_by_id(vehicle_id)
+
+        return VehicleResponse.model_validate(vehicle)
