@@ -1,39 +1,6 @@
-# Entornos virtuales (el más importante)
-venv/
-.venv/
-env/
+# Ignorar cualquier archivo .env en cualquier subnivel del proyecto
+**/ABM_AI_service/.env
+**/ABM_backend/.env
 
-# Archivos de caché de Python
-**/__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.pytest_cache/
-.tox/
-
-# Variables de entorno y secretos (Seguridad)
-.env
-.flaskenv
-*.key
-*.pem
-
-# Git
-.git/
-.gitignore
-
-# Archivos de sistema y editores
-.DS_Store
-.vscode/
-.idea/
-Thumbs.db
-
-# Docker (evita copiarse a sí mismo)
-Dockerfile
-docker-compose.yml
-.dockerignore
-
-# Datos y temporales
-*.log
-tmp/
-dist/
-build/
+# O de forma más general, cualquier archivo .env en cualquier subcarpeta:
+# **/.env
