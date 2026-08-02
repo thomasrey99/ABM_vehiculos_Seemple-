@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
@@ -7,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import logger
 from app.enums.embedding_status import EmbeddingStatus
+from app.enums.image_detail import ImageDetailType
 from app.exceptions.app_exceptions import (
     BadRequestException,
     ConflictException,
@@ -20,6 +22,7 @@ from app.models.vehicle_image import VehicleImage
 from app.modules.vehicles.repository import VehicleRepository
 from app.modules.vehicles.schemas.create_vehicle_request import (
     CreateImageDetailRequest,
+    CreateVehicleImageRequest,
     CreateVehicleRequest,
 )
 from app.modules.vehicles.schemas.update_vehicle_image_label_request import (
@@ -33,6 +36,9 @@ from app.modules.vehicles.schemas.vehicle_search_response import (
     MatchedImageResponse,
     VehicleSearchMatchResponse,
     VehicleSearchResponse,
+)
+from app.services.damage_detection.damage_detection_service import (
+    DamageDetectionService,
 )
 from app.services.recognition.models.image_search_result import (
     ImageSearchResult,
@@ -48,11 +54,13 @@ class VehicleService:
         vehicle_repository: VehicleRepository,
         storage_service: StorageService,
         recognition_service: RecognitionService,
+        damage_detection_service: DamageDetectionService,
     ):
         self.db = db
         self.vehicle_repository = vehicle_repository
         self.storage_service = storage_service
         self.recognition_service = recognition_service
+        self.damage_detection_service = damage_detection_service
 
     async def create(
         self,
@@ -72,12 +80,26 @@ class VehicleService:
             files_map=files_map,
         )
 
+        # Resolvemos los `details` de TODAS las imágenes antes de construir
+        # nada: si el cliente ya los mandó manualmente, se respetan tal
+        # cual; si vinieron vacíos, se corre la detección automática de
+        # daños (OpenAI Vision) sobre esa imagen puntual. Se hace acá, una
+        # única vez, para reusar el mismo resultado tanto al persistir en
+        # la base (_build_images) como al indexar en el servicio de
+        # reconocimiento (_index_vehicle_images), sin llamar dos veces a
+        # la IA para la misma foto.
+        resolved_details = await self._resolve_all_details(
+            request=request,
+            files_map=files_map,
+        )
+
         vehicle = self._build_vehicle(request)
 
         images = await self._build_images(
             vehicle=vehicle,
             request=request,
             files_map=files_map,
+            resolved_details=resolved_details,
         )
         vehicle.images = images
 
@@ -114,6 +136,7 @@ class VehicleService:
             images=images,
             request=request,
             files_map=files_map,
+            resolved_details=resolved_details,
         )
 
         vehicle = await self.vehicle_repository.get_by_id(vehicle.id)
@@ -124,6 +147,67 @@ class VehicleService:
             )
 
         return VehicleResponse.model_validate(vehicle)
+
+    async def _resolve_all_details(
+        self,
+        request: CreateVehicleRequest,
+        files_map: dict[str, UploadFile],
+    ) -> dict[str, list[CreateImageDetailRequest]]:
+        """
+        Resuelve los `details` finales de CADA imagen del request:
+
+        - Si el cliente ya envió `details` manualmente (no vacío), se
+        respetan sin tocar la IA — permite carga o corrección manual.
+        - Si vinieron vacíos, se corre la detección automática de daños
+        (servicio de IA de visión) sobre esa imagen puntual, pasándole el
+        `label` (sector) como contexto de orientación — sin este dato el
+        modelo tiende a describir izquierda/derecha desde la perspectiva
+        del espectador de la foto en vez de la del vehículo, e invierte
+        los lados en fotos laterales.
+
+        Todas las detecciones se disparan en paralelo (asyncio.gather) para
+        no serializar la latencia de la API externa entre imágenes.
+        Es best-effort: si la detección de una imagen falla, esa imagen
+        queda con lista vacía de details.
+
+        Devuelve un diccionario {filename: [CreateImageDetailRequest]}.
+        """
+
+        async def resolve_one(
+            image_request: CreateVehicleImageRequest,
+        ) -> tuple[str, list[CreateImageDetailRequest]]:
+
+            if image_request.details:
+                return image_request.filename, image_request.details
+
+            upload_file = files_map.get(image_request.filename)
+
+            if upload_file is None:
+                return image_request.filename, []
+
+            recognition_label = IMAGE_LABEL_TO_RECOGNITION_LABEL.get(
+                image_request.label,
+                image_request.label.value,
+            )
+
+            detected = await self.damage_detection_service.detect_damages(
+                upload_file,
+                label=recognition_label,
+            )
+
+            return image_request.filename, [
+                CreateImageDetailRequest(
+                    detail_type=ImageDetailType(damage.detail_type),
+                    description=damage.description,
+                )
+                for damage in detected
+            ]
+
+        results = await asyncio.gather(
+            *(resolve_one(image_request) for image_request in request.images)
+        )
+
+        return dict(results)
 
     async def _validate_license_plate(
         self,
@@ -198,6 +282,7 @@ class VehicleService:
         vehicle: Vehicle,
         request: CreateVehicleRequest,
         files_map: dict[str, UploadFile],
+        resolved_details: dict[str, list[CreateImageDetailRequest]],
     ) -> list[VehicleImage]:
 
         images: list[VehicleImage] = []
@@ -224,7 +309,9 @@ class VehicleService:
                 image_url=uploaded_file.url,
                 label=image_request.label,
                 embedding_status=EmbeddingStatus.PENDIENTE,
-                details=self._build_details(image_request.details),
+                details=self._build_details(
+                    resolved_details.get(image_request.filename, [])
+                ),
             )
 
             images.append(image)
@@ -252,6 +339,7 @@ class VehicleService:
         images: list[VehicleImage],
         request: CreateVehicleRequest,
         files_map: dict[str, UploadFile],
+        resolved_details: dict[str, list[CreateImageDetailRequest]],
     ) -> None:
         """
         Envía las imágenes al servicio de reconocimiento para su embebido
@@ -263,14 +351,13 @@ class VehicleService:
         en memoria) en vez de leerla desde `vehicle.images`, porque esa
         relación queda expirada tras el refresh() del repositorio y
         volver a accederla dispara un lazy-load que rompe en modo async
-        (MissingGreenlet) si no se hace dentro de un await explícito.
-        Los atributos escalares de `vehicle` (brand, model, color, id) sí
-        son seguros de leer en este punto.
+        (MissingGreenlet) si no se hace dentro de un await explícito. Los
+        atributos escalares de `vehicle` (brand, model, color, id) sí son
+        seguros de leer en este punto.
 
-        Cada imagen viaja junto con SUS PROPIOS `details` (relación 1-a-N
-        imagen→detalles), tal como espera `metadata.images` en el /ingest
-        del servicio de reconocimiento — ya no se manda una lista de
-        details aplanada a nivel vehículo.
+        Cada imagen viaja junto con SUS PROPIOS `details` ya resueltos
+        (manuales o auto-detectados por IA), tal como espera
+        `metadata.images` en el /ingest del servicio de reconocimiento.
         """
 
         images_to_index: list[tuple[UploadFile, str, list[str]]] = []
@@ -284,7 +371,8 @@ class VehicleService:
             )
 
             image_details = [
-                detail.detail_type.value for detail in image_request.details
+                detail.detail_type.value
+                for detail in resolved_details.get(image_request.filename, [])
             ]
 
             images_to_index.append((upload_file, label, image_details))

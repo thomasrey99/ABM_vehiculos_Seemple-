@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "abm-vehiculos-completa-0001",
     "name": "ABM Vehículos API - Colección Completa",
-    "description": "Colección completa para probar el backend de gestión de vehículos: vehículos, búsqueda por imagen (servicio de reconocimiento), seguridad (API Key) y casos negativos/validaciones.\n\nEl módulo de usuarios fue removido temporalmente del proyecto (se reincorporará más adelante), por lo que ya no requiere owner_id al crear un vehículo.\n\nOrden sugerido de ejecución:\n1. Vehicles > Create Vehicle - Success\n2. Búsqueda por Imagen > Search Vehicles By Image (adjuntá una imagen similar a la subida en el paso 1)\n3. El resto de las requests en cualquier orden.",
+    "description": "Colección completa para probar el backend de gestión de vehículos: vehículos, búsqueda por imagen (servicio de reconocimiento), detección automática de daños por IA (OpenAI Vision), seguridad (API Key) y casos negativos/validaciones.\n\nEl módulo de usuarios fue removido temporalmente del proyecto (se reincorporará más adelante), por lo que ya no requiere owner_id al crear un vehículo.\n\n**Detección automática de daños:** al crear un vehículo, por cada imagen cuyo `details` venga vacío (`[]` o campo omitido), el backend llama automáticamente al servicio de IA (OpenAI Vision) para detectar los daños visibles y setearlos, sin intervención manual. Si el cliente ya envía `details` explícitos para una imagen, esos se respetan tal cual (override manual) y NO se llama a la IA para esa imagen puntual. Es best-effort: si la detección falla para alguna imagen, esa imagen queda simplemente sin details, sin afectar el resto de la creación.\n\nOrden sugerido de ejecución:\n1. Vehicles > Create Vehicle - Success\n2. Vehicles > Create Vehicle - Detección Automática de Daños (IA)\n3. Búsqueda por Imagen > Search Vehicles By Image (adjuntá una imagen similar a la subida en el paso 1)\n4. El resto de las requests en cualquier orden.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -20,6 +20,14 @@
     },
     {
       "key": "imageId",
+      "value": ""
+    },
+    {
+      "key": "vehicleIdAutoDamage",
+      "value": ""
+    },
+    {
+      "key": "imageIdAutoDamage",
       "value": ""
     }
   ],
@@ -65,7 +73,8 @@
                   "src": []
                 }
               ]
-            }
+            },
+            "description": "Caso mixto: la imagen 'frente.jpg' trae `details` manuales (RAYON) → se respetan tal cual, no se llama a la IA para esa imagen. La imagen 'atras.jpg' trae `details: []` → se dispara la detección automática de daños (OpenAI Vision) para esa imagen puntual."
           },
           "event": [
             {
@@ -85,7 +94,80 @@
                   "let r = pm.response.json();",
                   "pm.test('success true', function () { pm.expect(r.success).to.be.true; });",
                   "if (r.data && r.data.id) { pm.collectionVariables.set('vehicleId', r.data.id); }",
-                  "pm.test('trae 2 imagenes', function () { pm.expect(r.data.images.length).to.eql(2); });"
+                  "pm.test('trae 2 imagenes', function () { pm.expect(r.data.images.length).to.eql(2); });",
+                  "pm.test('imagen frente conserva el detail manual RAYON', function () {",
+                  "  let frente = r.data.images.find(img => img.label === 'FRENTE');",
+                  "  pm.expect(frente.details.some(d => d.detail_type === 'RAYON')).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Vehicle - Detección Automática de Daños (IA)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "request",
+                  "type": "text",
+                  "value": "{\n  \"license_plate\": \"DD456EE\",\n  \"brand\": \"Ford\",\n  \"model\": \"Focus\",\n  \"color\": \"Gris\",\n  \"year\": 2019,\n  \"images\": [\n    {\n      \"filename\": \"lateral_izquierda.jpg\",\n      \"label\": \"LATERAL_IZQUIERDA\",\n      \"details\": []\n    },\n    {\n      \"filename\": \"atras.jpg\",\n      \"label\": \"ATRAS\",\n      \"details\": []\n    }\n  ]\n}"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "description": "Ninguna imagen trae `details` manuales: para AMBAS se dispara la detección automática de daños vía IA (OpenAI Vision), en paralelo. Para probar bien este caso, subí fotos que muestren algún daño visible real (rayón, abolladura, vidrio roto, etc.) — si la foto está impecable, es totalmente válido que la IA devuelva `details: []` para esa imagen."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Adjuntá 2 archivos con daños visibles reales, nombrados",
+                  "// 'lateral_izquierda.jpg' y 'atras.jpg', para poder validar",
+                  "// que la IA efectivamente detecta y completa 'details'."
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200/201', function () { pm.expect([200,201]).to.include(pm.response.code); });",
+                  "let r = pm.response.json();",
+                  "pm.test('success true', function () { pm.expect(r.success).to.be.true; });",
+                  "if (r.data && r.data.id) { pm.collectionVariables.set('vehicleIdAutoDamage', r.data.id); }",
+                  "if (r.data && r.data.images && r.data.images.length > 0) { pm.collectionVariables.set('imageIdAutoDamage', r.data.images[0].id); }",
+                  "pm.test('cada imagen trae el campo details (puede venir vacío si no hay daños detectados)', function () {",
+                  "  r.data.images.forEach(img => { pm.expect(img).to.have.property('details'); });",
+                  "});"
                 ]
               }
             }
@@ -298,6 +380,41 @@
                   "  }",
                   "});",
                   "if (r.data && r.data.images && r.data.images.length > 0) { pm.collectionVariables.set('imageId', r.data.images[0].id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Vehicle By Id - Detección Automática (verificar details)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/{{vehicleIdAutoDamage}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicleIdAutoDamage}}"
+              ]
+            },
+            "description": "Ejecutar después de 'Create Vehicle - Detección Automática de Daños (IA)' para inspeccionar qué `details` quedaron seteados automáticamente en cada imagen por el servicio de IA."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "let r = pm.response.json();",
+                  "console.log('Details detectados por IA:', JSON.stringify(r.data.images.map(img => ({ label: img.label, details: img.details })), null, 2));"
                 ]
               }
             }
@@ -676,7 +793,7 @@
                 }
               ]
             },
-            "description": "Reemplaza el archivo de una imagen puntual: sube el nuevo archivo a Cloud Storage, borra el anterior, y si la imagen tiene embedding_id, reemplaza tambien el embedding en el servicio de reconocimiento via PATCH /images/{embedding_id}."
+            "description": "Reemplaza el archivo de una imagen puntual: sube el nuevo archivo a Cloud Storage, borra el anterior, y si la imagen tiene embedding_id, reemplaza tambien el embedding en el servicio de reconocimiento via PATCH /images/{embedding_id}. NOTA: este endpoint NO vuelve a correr la detección automática de daños sobre la imagen nueva; los `details` existentes quedan sin cambios."
           },
           "event": [
             {

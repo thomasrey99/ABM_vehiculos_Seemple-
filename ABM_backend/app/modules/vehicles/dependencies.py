@@ -11,6 +11,9 @@ from app.services.recognition.ai_recognition_service import (
 from app.services.storage.google_cloud_storage_service import (
     GoogleCloudStorageService,
 )
+from app.services.damage_detection.openai_damage_detection_service import (
+    OpenAIDamageDetectionService,
+)
 
 def get_vehicle_service(
     db: AsyncSession = Depends(get_db),
@@ -21,6 +24,7 @@ def get_vehicle_service(
         vehicle_repository=VehicleRepository(db),
         storage_service=GoogleCloudStorageService(),
         recognition_service=AIRecognitionService(),
+        damage_detection_service=OpenAIDamageDetectionService(),
     )
 
 

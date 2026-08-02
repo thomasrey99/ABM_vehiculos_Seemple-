@@ -62,6 +62,17 @@ class AppSettings(BaseSettings):
     PROJECT_NAME: str = "Vehicle Management API"
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"
+    
+class DamageDetectionSettings(BaseSettings):
+    OPENAI_API_KEY: str
+    OPENAI_DAMAGE_MODEL: str = "gpt-4o-mini"
+
+    @field_validator("OPENAI_API_KEY")
+    @classmethod
+    def validate_not_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("OPENAI_API_KEY no puede estar vacío.")
+        return value
 
 
 class Settings(
@@ -69,6 +80,7 @@ class Settings(
     SecuritySettings,
     StorageSettings,
     AIServiceSettings,
+    DamageDetectionSettings,
     AppSettings,
 ):
     model_config = SettingsConfigDict(
