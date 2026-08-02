@@ -1,17 +1,58 @@
-# Variables de entorno (todos los niveles)
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Variables de entorno
 .env
 .env.*
 !.env.example
 
-# Cache de Python (todos los niveles)
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# Archivos compilados
+*.so
+*.pyd
 *.pyo
 
-# Entornos virtuales
-.venv/
-venv/
-ENV/
+# Caché
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# Cobertura
+.coverage
+.coverage.*
+htmlcov/
+
+# Logs
+*.log
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# SQLite (si no querés versionarla)
+*.sqlite3
+*.db
 
 # Credenciales
 **/credentials/*.json
