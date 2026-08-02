@@ -1,9 +1,17 @@
-# Entornos virtuales de Python
+# Variables de entorno (todos los niveles)
+.env
+.env.*
+!.env.example
+
+# Cache de Python (todos los niveles)
+__pycache__/
+*.pyc
+*.pyo
+
+# Entornos virtuales
 .venv/
 venv/
 ENV/
 
-# Ignorar carpetas internas de microservicios si no son submódulos
-ABM_AI_service/.venv/
-ABM_backend/.venv/
-ABM_backend/credentials/google_cloud_credentials.json
+# Credenciales
+**/credentials/*.json
