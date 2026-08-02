@@ -1,5 +1,8 @@
 from uuid import UUID
 from fastapi import UploadFile
+from app.modules.vehicles.schemas.vehicle_filter_search_response import (
+    VehicleFilterSearchResponse,
+)
 from app.modules.vehicles.schemas.create_vehicle_request import (
     CreateVehicleRequest,
 )
@@ -162,4 +165,20 @@ class VehicleController:
         return success_response(
             data=result.model_dump(mode="json"),
             message="Búsqueda por texto completada.",
+        )
+        
+    async def search_by_filters(
+        self,
+        text: str,
+    ):
+        filters, vehicles = await self.service.search_by_filters(text)
+
+        response = VehicleFilterSearchResponse(
+            applied_filters=filters,
+            vehicles=vehicles,
+        )
+
+        return success_response(
+            data=response.model_dump(mode="json"),
+            message="Búsqueda por filtros completada.",
         )

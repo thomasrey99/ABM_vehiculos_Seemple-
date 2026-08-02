@@ -26,7 +26,7 @@ from app.modules.vehicles.schemas.create_vehicle_request import (
     CreateVehicleRequest,
 )
 from app.modules.vehicles.schemas.update_vehicle_image_label_request import (
-    UpdateVehicleImageLabelRequest,
+        UpdateVehicleImageLabelRequest,
 )
 from app.modules.vehicles.schemas.update_vehicle_request import (
     UpdateVehicleRequest,
@@ -37,6 +37,8 @@ from app.modules.vehicles.schemas.vehicle_search_response import (
     VehicleSearchMatchResponse,
     VehicleSearchResponse,
 )
+from app.modules.vehicles.schemas.vehicle_filter_query import VehicleFilterQuery
+
 from app.services.damage_detection.damage_detection_service import (
     DamageDetectionService,
 )
@@ -45,6 +47,11 @@ from app.services.recognition.models.image_search_result import (
 )
 from app.services.recognition.recognition_service import RecognitionService
 from app.services.storage.storage_service import StorageService
+
+from app.services.filter_extraction.filter_extraction_service import (
+    FilterExtractionService,
+)
+
 
 
 class VehicleService:
@@ -55,12 +62,14 @@ class VehicleService:
         storage_service: StorageService,
         recognition_service: RecognitionService,
         damage_detection_service: DamageDetectionService,
+        filter_extraction_service: FilterExtractionService,
     ):
         self.db = db
         self.vehicle_repository = vehicle_repository
         self.storage_service = storage_service
         self.recognition_service = recognition_service
         self.damage_detection_service = damage_detection_service
+        self.filter_extraction_service = filter_extraction_service
 
     async def create(
         self,
@@ -208,6 +217,29 @@ class VehicleService:
         )
 
         return dict(results)
+    
+    async def search_by_filters(
+        self,
+        text: str,
+    ) -> tuple[VehicleFilterQuery, list[VehicleResponse]]:
+        """
+        Traduce una consulta en lenguaje natural a filtros estructurados
+        (vía IA) y busca los vehículos que los cumplen. Devuelve tanto
+        los filtros aplicados (para transparencia con el cliente, así
+        puede corregir si la IA interpretó algo mal) como los vehículos
+        encontrados.
+        """
+
+        if not text or not text.strip():
+            raise BadRequestException("El texto de búsqueda no puede estar vacío.")
+
+        filters = await self.filter_extraction_service.extract_filters(text)
+
+        vehicles = await self.vehicle_repository.search_by_filters(filters)
+
+        return filters, [
+            VehicleResponse.model_validate(vehicle) for vehicle in vehicles
+        ]
 
     async def _validate_license_plate(
         self,

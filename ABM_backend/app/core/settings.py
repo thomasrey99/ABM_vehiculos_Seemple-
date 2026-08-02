@@ -65,7 +65,8 @@ class AppSettings(BaseSettings):
     
 class DamageDetectionSettings(BaseSettings):
     OPENAI_API_KEY: str
-    OPENAI_DAMAGE_MODEL: str = "gpt-4o-mini"
+    OPENAI_DAMAGE_MODEL: str = "gpt-4o"
+    OPENAI_FILTER_MODEL: str = "gpt-4o-mini"
 
     @field_validator("OPENAI_API_KEY")
     @classmethod

@@ -13,6 +13,9 @@ from app.modules.vehicles.schemas.update_vehicle_image_label_request import (
 from app.modules.vehicles.schemas.update_vehicle_request import (
     UpdateVehicleRequest,
 )
+from app.modules.vehicles.schemas.vehicle_filter_search_request import (
+    VehicleFilterSearchRequest,
+)
 
 
 router = APIRouter(
@@ -48,6 +51,13 @@ async def search_vehicles_by_text(
     controller: VehicleController = Depends(get_vehicle_controller),
 ):
     return await controller.search_by_text(text)
+
+@router.post("/search/filters")
+async def search_vehicles_by_filters(
+    payload: VehicleFilterSearchRequest,
+    controller: VehicleController = Depends(get_vehicle_controller),
+):
+    return await controller.search_by_filters(payload.text)
 
 @router.get("")
 async def get_all_vehicles(

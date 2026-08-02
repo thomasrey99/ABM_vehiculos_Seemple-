@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "abm-vehiculos-completa-0001",
     "name": "ABM Vehículos API - Colección Completa",
-    "description": "Colección completa para probar el backend de gestión de vehículos: vehículos, búsqueda por imagen (servicio de reconocimiento), detección automática de daños por IA (OpenAI Vision), seguridad (API Key) y casos negativos/validaciones.\n\nEl módulo de usuarios fue removido temporalmente del proyecto (se reincorporará más adelante), por lo que ya no requiere owner_id al crear un vehículo.\n\n**Detección automática de daños:** al crear un vehículo, por cada imagen cuyo `details` venga vacío (`[]` o campo omitido), el backend llama automáticamente al servicio de IA (OpenAI Vision) para detectar los daños visibles y setearlos, sin intervención manual. Si el cliente ya envía `details` explícitos para una imagen, esos se respetan tal cual (override manual) y NO se llama a la IA para esa imagen puntual. Es best-effort: si la detección falla para alguna imagen, esa imagen queda simplemente sin details, sin afectar el resto de la creación.\n\nOrden sugerido de ejecución:\n1. Vehicles > Create Vehicle - Success\n2. Vehicles > Create Vehicle - Detección Automática de Daños (IA)\n3. Búsqueda por Imagen > Search Vehicles By Image (adjuntá una imagen similar a la subida en el paso 1)\n4. El resto de las requests en cualquier orden.",
+    "description": "Colección completa para probar el backend de gestión de vehículos: vehículos, búsqueda por imagen (servicio de reconocimiento), búsqueda semántica por texto, búsqueda estructurada por filtros (IA), detección automática de daños por IA (OpenAI Vision), seguridad (API Key) y casos negativos/validaciones.\n\nEl módulo de usuarios fue removido temporalmente del proyecto (se reincorporará más adelante), por lo que ya no requiere owner_id al crear un vehículo.\n\n**Detección automática de daños:** al crear un vehículo, por cada imagen cuyo `details` venga vacío (`[]` o campo omitido), el backend llama automáticamente al servicio de IA (OpenAI Vision) para detectar los daños visibles y setearlos, sin intervención manual. Si el cliente ya envía `details` explícitos para una imagen, esos se respetan tal cual (override manual) y NO se llama a la IA para esa imagen puntual. Es best-effort: si la detección falla para alguna imagen, esa imagen queda simplemente sin details, sin afectar el resto de la creación.\n\n**Búsqueda por filtros (IA):** el usuario envía una consulta en lenguaje natural (ej: \"traeme todos los toyota corolla color blanco con choque atras\") y el backend usa OpenAI para extraer filtros estructurados (license_plate, brand, model, color, year, insurance_policy, label, detail_type) y buscar los vehículos que los cumplen. El usuario NUNCA necesita conocer los nombres técnicos de los enums (ej. puede decir 'hundimiento' en vez de 'ABOLLADURA') — la IA los traduce usando una guía de sinónimos. La respuesta incluye `applied_filters` para transparencia: permite ver exactamente cómo interpretó la IA la consulta.\n\nOrden sugerido de ejecución:\n1. Vehicles > Create Vehicle - Success\n2. Vehicles > Create Vehicle - Detección Automática de Daños (IA)\n3. Búsqueda por Imagen y Texto > Search Vehicles By Image (adjuntá una imagen similar a la subida en el paso 1)\n4. Búsqueda por Filtros (IA) > cualquier request (usá marca/modelo/color de los vehículos creados en los pasos 1-2)\n5. El resto de las requests en cualquier orden.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -143,7 +143,7 @@
                 }
               ]
             },
-            "description": "Ninguna imagen trae `details` manuales: para AMBAS se dispara la detección automática de daños vía IA (OpenAI Vision), en paralelo. Para probar bien este caso, subí fotos que muestren algún daño visible real (rayón, abolladura, vidrio roto, etc.) — si la foto está impecable, es totalmente válido que la IA devuelva `details: []` para esa imagen."
+            "description": "Ninguna imagen trae `details` manuales: para AMBAS se dispara la detección automática de daños vía IA (OpenAI Vision), en paralelo. Para probar bien este caso, subí fotos que muestren algún daño visible real (rayón, abolladura, vidrio roto, choque, etc.) — si la foto está impecable, es totalmente válido que la IA devuelva `details: []` para esa imagen."
           },
           "event": [
             {
@@ -1056,7 +1056,7 @@
                 }
               ]
             },
-            "description": "Busqueda semantica hibrida por texto en lenguaje natural, delegada a POST /search/text del servicio de reconocimiento (similitud visual-semantica via CLIP + boost por keywords)."
+            "description": "Busqueda semantica hibrida por texto en lenguaje natural, delegada a POST /search/text del servicio de reconocimiento (similitud visual-semantica via CLIP + boost por keywords). Distinta del endpoint 'Búsqueda por Filtros (IA)': esta busca por SIMILITUD VISUAL (embeddings de las imágenes), no por filtros exactos de campos de la base de datos."
           },
           "event": [
             {
@@ -1111,6 +1111,366 @@
               "script": {
                 "exec": [
                   "pm.test('Status 400', function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Búsqueda por Filtros (IA)",
+      "item": [
+        {
+          "name": "Search Vehicles By Filters - Marca + Modelo + Color + Daño + Sector",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/search/filters",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "search",
+                "filters"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"traeme todos los toyota corolla color blanco con choque atras\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Caso completo: la IA debería extraer brand=Toyota, model=Corolla, color=Blanco, label=ATRAS, detail_type=CHOQUE. Devuelve tanto `applied_filters` (para verificar qué interpretó la IA) como `vehicles` (los resultados). Ejecutar después de crear algún vehículo Toyota Corolla blanco con un daño CHOQUE en el sector ATRAS para ver resultados no vacíos."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "let r = pm.response.json();",
+                  "pm.test('success true', function () { pm.expect(r.success).to.be.true; });",
+                  "pm.test('trae applied_filters', function () { pm.expect(r.data).to.have.property('applied_filters'); });",
+                  "pm.test('trae vehicles (array)', function () { pm.expect(r.data.vehicles).to.be.an('array'); });",
+                  "console.log('Filtros interpretados por la IA:', JSON.stringify(r.data.applied_filters, null, 2));",
+                  "pm.test('brand interpretado como Toyota', function () {",
+                  "  pm.expect((r.data.applied_filters.brand || '').toLowerCase()).to.include('toyota');",
+                  "});",
+                  "pm.test('label interpretado como ATRAS', function () { pm.expect(r.data.applied_filters.label).to.eql('ATRAS'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search Vehicles By Filters - Sinónimo de Daño (Hundimiento)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/search/filters",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "search",
+                "filters"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"busco autos con hundimiento en la puerta izquierda\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Valida que el usuario pueda usar lenguaje coloquial ('hundimiento') sin conocer el nombre técnico del enum. La IA debería mapearlo a detail_type=ABOLLADURA y label=LATERAL_IZQUIERDA."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "let r = pm.response.json();",
+                  "console.log('Filtros interpretados:', JSON.stringify(r.data.applied_filters, null, 2));",
+                  "pm.test('detail_type interpretado como ABOLLADURA', function () {",
+                  "  pm.expect(r.data.applied_filters.detail_type).to.eql('ABOLLADURA');",
+                  "});",
+                  "pm.test('label interpretado como LATERAL_IZQUIERDA', function () {",
+                  "  pm.expect(r.data.applied_filters.label).to.eql('LATERAL_IZQUIERDA');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search Vehicles By Filters - Por Patente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/search/filters",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "search",
+                "filters"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"mostrame el vehiculo con patente AA123BB\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Caso de un solo campo: solo debería completarse `license_plate`, el resto en null."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "let r = pm.response.json();",
+                  "pm.test('license_plate interpretada', function () {",
+                  "  pm.expect((r.data.applied_filters.license_plate || '').toUpperCase()).to.include('AA123BB');",
+                  "});",
+                  "pm.test('vehicles trae al menos 1 resultado', function () {",
+                  "  pm.expect(r.data.vehicles.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search Vehicles By Filters - Consulta Ambigua (sin filtros)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/search/filters",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "search",
+                "filters"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"mostrame todos los vehiculos\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Consulta sin ningún filtro identificable: la IA debería devolver todos los campos en null, y el endpoint listar todos los vehículos existentes (equivalente a GET /vehicles pero por este camino)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "let r = pm.response.json();",
+                  "console.log('Filtros interpretados (deberían ser todos null):', JSON.stringify(r.data.applied_filters, null, 2));",
+                  "pm.test('vehicles trae resultados (sin filtrar)', function () {",
+                  "  pm.expect(r.data.vehicles).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search Vehicles By Filters - Sin Resultados",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/search/filters",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "search",
+                "filters"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"ferrari rojo del año 1950\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Filtros válidos pero que no matchean ningún vehículo existente: debe responder 200 con `vehicles: []`, no un error."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "let r = pm.response.json();",
+                  "pm.test('vehicles vacio', function () { pm.expect(r.data.vehicles).to.be.an('array').that.is.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search Vehicles By Filters - Texto Vacio (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/search/filters",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "search",
+                "filters"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"   \"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Devuelve 400 si el texto de búsqueda está vacío o solo contiene espacios."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search Vehicles By Filters - Sin API Key (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/search/filters",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "search",
+                "filters"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"toyota corolla\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });"
                 ]
               }
             }
