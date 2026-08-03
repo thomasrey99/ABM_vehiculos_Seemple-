@@ -12,7 +12,9 @@ requests==2.33.1
 numpy==2.4.3
 pillow==12.1.1
 
+--extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.11.0
+
 transformers==5.4.0
 sentence-transformers==5.3.0
 
@@ -20,6 +22,6 @@ qdrant-client==1.17.1
 
 scikit-learn==1.8.0
 fast-alpr[onnx]==0.4.0
-opencv-python==4.11.0.86
+opencv-python-headless==4.11.0.86
 
 deep_translator==1.11.4
