@@ -67,6 +67,20 @@ class VehicleController:
             data=vehicles,
             message="Vehículos obtenidos correctamente."
         )
+        
+    async def get_by_license_plate(
+        self,
+        license_plate: str,
+    ):
+
+        vehicle = await self.service.get_by_license_plate(
+            license_plate
+        )
+
+        return success_response(
+            data=vehicle,
+            message="Vehículo obtenido correctamente."
+        )
 
     async def update(
         self,
@@ -83,6 +97,8 @@ class VehicleController:
             data=vehicle,
             message="Vehículo actualizado correctamente.",
         )
+        
+    
 
     async def update_image_label(
         self,
