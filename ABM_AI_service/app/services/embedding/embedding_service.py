@@ -1,4 +1,4 @@
-from app.core.model_embedding import model
+from app.core.model_embedding import get_model
 from app.exceptions.appExceptions import AppException
 from PIL import UnidentifiedImageError
 
@@ -48,6 +48,7 @@ async def generate_embedding(input_data):
                     status_code=400,
                 )
 
+        model = get_model()
         embedding = model.encode([data_to_encode])[0]
 
         if embedding is None or len(embedding) == 0:

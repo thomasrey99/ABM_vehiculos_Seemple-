@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from typing import Optional, TypedDict
 
-from app.core.plate_model import plate_model
+from app.core.plate_model import get_plate_model
 from app.config.settings import settings
 
 
@@ -41,6 +41,7 @@ def recognize_plate(image_bytes: bytes, min_confidence: float = None) -> Optiona
         if image is None:
             return None
 
+        plate_model = get_plate_model()
         results = plate_model.predict(image)
 
         best_text = None
