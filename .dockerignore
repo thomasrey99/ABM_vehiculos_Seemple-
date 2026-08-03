@@ -1,6 +1,53 @@
-# Ignorar cualquier archivo .env en cualquier subnivel del proyecto
-**/ABM_AI_service/.env
-**/ABM_backend/.env
+# Entornos virtuales
+**/venv/
+**/.venv/
+**/env/
 
-# O de forma más general, cualquier archivo .env en cualquier subcarpeta:
-# **/.env
+# Cachés de Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.tox/
+
+# Secretos / entorno
+**/.env
+**/.env.*
+!**/.env.example
+**/credentials/*.json
+**/*.key
+**/*.pem
+
+# Git
+.git/
+.gitignore
+
+# Editores / SO
+**/.vscode/
+**/.idea/
+**/.DS_Store
+**/Thumbs.db
+
+# Build / temporales
+**/build/
+**/dist/
+**/*.egg-info/
+**/tmp/
+**/*.log
+**/.coverage
+**/htmlcov/
+
+# Docker
+Dockerfile*
+docker-compose.yml
+.dockerignore
+
+# Colecciones de Postman / docs (no hacen falta dentro de la imagen)
+**/*.postman_collection.json
+**/consultas_postman.json
+**/routes_info.md
+**/readme.md
+**/README.md

@@ -1,43 +1,16 @@
 version: "3.9"
 
 services:
-
-  backend:
+  app:
     build:
-      context: ./ABM_backend
-
-    container_name: backend
-
-    env_file:
-      - ./ABM_backend/.env
-
-    environment:
-      AI_SERVICE_URL: http://ai-service:8001
-
+      context: .
+      dockerfile: Dockerfile
+    container_name: abm-app
     ports:
       - "8000:8000"
-
-    depends_on:
-      - ai-service
-
-    networks:
-      - app-network
-
-  ai-service:
-    build:
-      context: ./ABM_AI_service
-
-    container_name: ai-service
-
-    env_file:
-      - ./ABM_AI_service/.env
-
-    ports:
       - "8001:8001"
-
-    networks:
-      - app-network
-
-networks:
-  app-network:
-    driver: bridge
+    volumes:
+      - ./ABM_backend/.env:/app/backend/.env:ro
+      - ./ABM_AI_service/.env:/app/ai-service/.env:ro
+      - ./ABM_backend/credentials/google_cloud_credentials.json:/app/backend/credentials/google_cloud_credentials.json:ro
+    restart: unless-stopped
