@@ -43,6 +43,8 @@ docker build -t abm-ai-service .
 docker run -p 8001:8001 --env-file .env abm-ai-service
 ```
 
+> Nota: en el monorepo, este servicio se levanta junto con `ABM_backend` en una única imagen Docker (ver `Dockerfile` y `start.sh` en la raíz), corriendo en el puerto 8001 mientras el backend usa el 8000.
+
 Todas las rutas requieren el header `X-API-Key: <tu SERVICE_API_KEY>`.
 
 ## Estructura del proyecto
@@ -123,7 +125,7 @@ Cada punto en Qdrant representa **una imagen** de un vehículo:
 | DELETE | `/delete/{vehicle_id}` | Elimina todas las imágenes de un vehículo |
 | DELETE | `/delete/embedding/{embedding_id}` | Elimina una imagen puntual |
 
-Formato completo de request/response de cada uno: ver `rutas_informe.md` (o la colección de Postman `consultas_postman.json`).
+Formato completo de request/response de cada uno: ver `routes_info.md` (o la colección de Postman `consultas_postman.json`).
 
 ## Flujos clave
 
@@ -144,10 +146,9 @@ El umbral de aceptación final (`compute_dynamic_threshold`) se calcula sobre lo
 
 - **Rollback en `/ingest`**: si falla una imagen a mitad del lote, se revierten (`delete`) los puntos ya insertados en ese request, para no dejar datos parciales.
 - **`label` vs `details`**: una imagen tiene un único sector (`label`) pero puede tener varios detalles (`details`) — es una relación 1-a-N, reflejada en el schema `ImageIngestData` de la ingesta.
-- **`/search/filtered` fue removido**: la búsqueda híbrida por texto (con boost por `label`) cubre los casos de sector específico con más flexibilidad que un filtro estricto por etiquetas.
+- **`/search/filtered` fue removido**: la búsqueda híbrida por texto (con boost por `label`) cubre los casos de sector específico con más flexibilidad que un filtro estricto por etiquetas. La búsqueda por filtros estructurados (marca, modelo, sector, tipo de daño exactos) se implementó del lado de `ABM_backend` (`POST /vehicles/search/filters`), consultando directamente PostgreSQL en vez de Qdrant, ya que ahí el backend ya cuenta con los datos estructurados completos.
 
 ## Pendiente / mejoras conocidas
 
 - El modelo CLIP (`model.encode`) y el modelo ANPR corren de forma **síncrona**, bloqueando el event loop de FastAPI bajo carga concurrente. Recomendado: envolverlos en threadpool (`anyio.to_thread.run_sync`).
 - `deep-translator` depende de un servicio no oficial (Google Translate) sin caché ni timeout propio — puede fallar o rate-limitear bajo volumen.
-- Verificar que `deep-translator` esté explícitamente en `requirements.txt` (se usa en `app/utils/traduction.py` pero no estaba listado en la versión original del archivo).
