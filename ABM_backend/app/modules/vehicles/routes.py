@@ -65,7 +65,7 @@ async def get_all_vehicles(
 ):
     return await controller.get_all()
 
-router.get("/patente/{license_plate}")
+@router.get("/patente/{license_plate}")
 async def get_vehicle_by_license_plate(
     license_plate: str,
     controller: VehicleController = Depends(get_vehicle_controller)

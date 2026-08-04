@@ -1,0 +1,660 @@
+openapi: 3.0.3
+info:
+  title: Vehicle Management API
+  description: >
+    API para gestión, consulta, identificación y rastreo de vehículos para
+    compañías de seguros. Cada endpoint corresponde a una skill del agente
+    vehicular en watsonx Orchestrate.
+  version: "1.0.0"
+servers:
+  - url: https://abm-backend-74934092886.southamerica-east1.run.app/vehicles
+    description: Reemplazar por la URL real del backend desplegado.
+
+security:
+  - ApiKeyAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    ImageLabel:
+      type: string
+      enum:
+        - FRENTE
+        - ATRAS
+        - LATERAL_IZQUIERDA
+        - LATERAL_DERECHA
+        - FRENTE_IZQUIERDA
+        - FRENTE_DERECHA
+        - ATRAS_IZQUIERDA
+        - ATRAS_DERECHA
+        - OTRO
+
+    ImageDetailType:
+      type: string
+      enum:
+        - ABOLLADURA
+        - VIDRIO_ROTO
+        - RAYON
+        - GRIETA
+        - ROTO
+        - OXIDO
+        - CALCOMANIA
+        - PIEZA_FALTANTE
+        - DANO_PINTURA
+        - DEFORMACION
+        - CHOQUE
+        - OTRO_COLOR
+        - OTRO
+
+    ImageDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        detail_type:
+          $ref: '#/components/schemas/ImageDetailType'
+        description:
+          type: string
+          nullable: true
+
+    VehicleImage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        image_url:
+          type: string
+        label:
+          $ref: '#/components/schemas/ImageLabel'
+        embedding_status:
+          type: string
+          enum: [PENDIENTE, PROCESANDO, COMPLETADO, ERROR]
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImageDetail'
+
+    Vehicle:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        license_plate:
+          type: string
+        brand:
+          type: string
+        model:
+          type: string
+        color:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          nullable: true
+        insurance_policy:
+          type: string
+          nullable: true
+        observations:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/VehicleImage'
+
+    StandardResponseVehicle:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/Vehicle'
+        error:
+          type: string
+          nullable: true
+
+    StandardResponseVehicleList:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Vehicle'
+        error:
+          type: string
+          nullable: true
+
+    SearchMatch:
+      type: object
+      properties:
+        vehicle:
+          $ref: '#/components/schemas/Vehicle'
+        score:
+          type: number
+        matched_images:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              score:
+                type: number
+              details:
+                type: array
+                items:
+                  type: string
+
+    StandardResponseSearch:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            threshold:
+              type: number
+              nullable: true
+            matches:
+              type: array
+              items:
+                $ref: '#/components/schemas/SearchMatch'
+        error:
+          type: string
+          nullable: true
+
+    AppliedFilters:
+      type: object
+      properties:
+        license_plate:
+          type: string
+          nullable: true
+        brand:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        color:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          nullable: true
+        insurance_policy:
+          type: string
+          nullable: true
+        label:
+          $ref: '#/components/schemas/ImageLabel'
+        detail_type:
+          $ref: '#/components/schemas/ImageDetailType'
+
+    StandardResponseFilterSearch:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            applied_filters:
+              $ref: '#/components/schemas/AppliedFilters'
+            vehicles:
+              type: array
+              items:
+                $ref: '#/components/schemas/Vehicle'
+        error:
+          type: string
+          nullable: true
+
+    StandardResponseEmpty:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          nullable: true
+        error:
+          type: string
+          nullable: true
+
+    VehicleCreateImage:
+      type: object
+      required: [filename, label, details]
+      properties:
+        filename:
+          type: string
+        label:
+          $ref: '#/components/schemas/ImageLabel'
+        details:
+          type: array
+          items:
+            type: object
+            required: [detail_type]
+            properties:
+              detail_type:
+                $ref: '#/components/schemas/ImageDetailType'
+              description:
+                type: string
+
+    VehicleCreateRequest:
+      type: object
+      required: [license_plate, brand, model, images]
+      properties:
+        license_plate:
+          type: string
+          minLength: 5
+          maxLength: 15
+        brand:
+          type: string
+        model:
+          type: string
+        color:
+          type: string
+        year:
+          type: integer
+        insurance_policy:
+          type: string
+        observations:
+          type: string
+        images:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/VehicleCreateImage'
+
+    VehicleUpdateRequest:
+      type: object
+      properties:
+        license_plate:
+          type: string
+        brand:
+          type: string
+        model:
+          type: string
+        color:
+          type: string
+        year:
+          type: integer
+        insurance_policy:
+          type: string
+        observations:
+          type: string
+        is_active:
+          type: boolean
+
+paths:
+  /:
+    get:
+      operationId: listar_vehiculos
+      summary: Listar todos los vehículos
+      description: Obtiene todos los vehículos registrados, junto con sus imágenes y detalles.
+      responses:
+        "200":
+          description: Lista de vehículos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponseVehicleList'
+
+    post:
+      operationId: crear_vehiculo
+      summary: Registrar un vehículo con sus imágenes
+      description: >
+        Crea un vehículo junto con sus imágenes y detalles. Requiere patente,
+        marca, modelo y al menos una imagen. Si una imagen se envía con
+        details vacío, se dispara detección automática de daños (best effort).
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [request, files]
+              properties:
+                request:
+                  $ref: '#/components/schemas/VehicleCreateRequest'
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        "200":
+          description: Vehículo creado correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponseVehicle'
+        "400":
+          description: Datos faltantes, inválidos o archivos que no coinciden.
+        "409":
+          description: La patente ya existe.
+
+  /{vehicle_id}:
+    get:
+      operationId: obtener_vehiculo_por_id
+      summary: Obtener un vehículo por su ID
+      parameters:
+        - name: vehicle_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Vehículo obtenido correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponseVehicle'
+        "404":
+          description: Vehículo no encontrado.
+
+    put:
+      operationId: actualizar_vehiculo
+      summary: Actualizar datos de un vehículo
+      description: Actualiza parcialmente cualquier subconjunto de campos del vehículo.
+      parameters:
+        - name: vehicle_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VehicleUpdateRequest'
+      responses:
+        "200":
+          description: Vehículo actualizado correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponseVehicle'
+        "400":
+          description: No se envió ningún campo.
+        "404":
+          description: Vehículo no encontrado.
+        "409":
+          description: La nueva patente ya pertenece a otro vehículo.
+
+    delete:
+      operationId: eliminar_vehiculo
+      summary: Eliminar un vehículo (acción destructiva)
+      description: >
+        Elimina un vehículo junto con todas sus imágenes. Requiere
+        confirmación explícita del usuario antes de ejecutarse.
+      parameters:
+        - name: vehicle_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Vehículo eliminado correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponseEmpty'
+        "404":
+          description: Vehículo no encontrado.
+        "500":
+          description: Falló la eliminación de vectores o archivos externos; el vehículo no se borró.
+
+  /patente/{license_plate}:
+    get:
+      operationId: obtener_vehiculo_por_patente
+      summary: Obtener un vehículo por su patente
+      description: Búsqueda insensible a mayúsculas/minúsculas.
+      parameters:
+        - name: license_plate
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Vehículo obtenido correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponseVehicle'
+        "404":
+          description: No existe ningún vehículo con esa patente.
+
+  /search/image:
+    post:
+      operationId: buscar_vehiculo_por_imagen
+      summary: Buscar vehículos por similitud visual
+      description: >
+        Busca vehículos visualmente similares a partir de una imagen.
+        Los resultados son por similitud, nunca una identificación definitiva.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Búsqueda por imagen completada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponseSearch'
+        "500":
+          description: Falló la búsqueda vectorial en el servicio de reconocimiento.
+
+  /search/text:
+    post:
+      operationId: buscar_vehiculo_por_texto_semantico
+      summary: Búsqueda semántica híbrida por texto
+      description: >
+        Busca vehículos que se parezcan visual o semánticamente a una
+        descripción en lenguaje natural (no es búsqueda por filtros exactos).
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+      responses:
+        "200":
+          description: Búsqueda por texto completada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponseSearch'
+        "400":
+          description: El texto viene vacío.
+        "500":
+          description: Falló la búsqueda híbrida en el servicio de reconocimiento.
+
+  /search/filters:
+    post:
+      operationId: buscar_vehiculo_por_filtros
+      summary: Búsqueda estructurada por filtros exactos
+      description: >
+        Traduce una consulta en lenguaje natural a filtros exactos
+        (marca, modelo, color, año, póliza, patente, sector, tipo de daño)
+        y consulta directamente contra la base de datos.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+      responses:
+        "200":
+          description: Búsqueda por filtros completada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponseFilterSearch'
+        "400":
+          description: El texto viene vacío.
+
+  /{vehicle_id}/images/{image_id}/label:
+    patch:
+      operationId: actualizar_sector_imagen
+      summary: Cambiar el sector (label) de una imagen
+      description: >
+        Interpretar "izquierda/derecha" siempre desde la perspectiva del
+        vehículo o del conductor, nunca del observador de la foto.
+      parameters:
+        - name: vehicle_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: image_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              properties:
+                label:
+                  $ref: '#/components/schemas/ImageLabel'
+      responses:
+        "200":
+          description: Label de la imagen actualizado correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponseVehicle'
+        "404":
+          description: La imagen no existe o no pertenece al vehículo indicado.
+
+  /{vehicle_id}/images/{image_id}/file:
+    patch:
+      operationId: reemplazar_archivo_imagen
+      summary: Reemplazar el archivo de una imagen
+      description: >
+        Reemplaza el archivo conservando el sector y los daños ya
+        registrados. No vuelve a ejecutar la detección automática de daños.
+      parameters:
+        - name: vehicle_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: image_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Imagen reemplazada correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponseVehicle'
+        "404":
+          description: La imagen no existe o no pertenece al vehículo indicado.
+
+    delete:
+      operationId: eliminar_imagen
+      summary: Eliminar una imagen puntual (acción destructiva)
+      description: >
+        Elimina una única imagen sin afectar al resto del vehículo. Requiere
+        confirmación explícita del usuario antes de ejecutarse.
+      parameters:
+        - name: vehicle_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: image_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Imagen eliminada correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponseEmpty'
+        "404":
+          description: La imagen no existe o no pertenece al vehículo indicado.
+        "500":
+          description: Falló la eliminación del embedding o del archivo externo; la imagen no se borró.
