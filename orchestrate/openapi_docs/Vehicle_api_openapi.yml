@@ -120,6 +120,29 @@ components:
           items:
             $ref: '#/components/schemas/VehicleImage'
 
+    VehicleSummary:
+      type: object
+      description: >
+        Versión liviana de Vehicle, sin `images` ni campos secundarios.
+        Se usa en los endpoints que devuelven VARIOS vehículos a la vez
+        (listado completo, búsqueda por filtros, búsqueda por imagen/texto)
+        para evitar respuestas demasiado grandes. Para el detalle completo
+        de un vehículo puntual (incluyendo imágenes), usar
+        obtener_vehiculo_por_id con el `id` recibido acá.
+      properties:
+        id:
+          type: string
+          format: uuid
+        license_plate:
+          type: string
+        brand:
+          type: string
+        model:
+          type: string
+        insurance_policy:
+          type: string
+          nullable: true
+
     StandardResponseVehicle:
       type: object
       properties:
@@ -143,7 +166,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/Vehicle'
+            $ref: '#/components/schemas/VehicleSummary'
         error:
           type: string
           nullable: true
@@ -152,7 +175,7 @@ components:
       type: object
       properties:
         vehicle:
-          $ref: '#/components/schemas/Vehicle'
+          $ref: '#/components/schemas/VehicleSummary'
         score:
           type: number
         matched_images:
@@ -231,7 +254,7 @@ components:
             vehicles:
               type: array
               items:
-                $ref: '#/components/schemas/Vehicle'
+                $ref: '#/components/schemas/VehicleSummary'
         error:
           type: string
           nullable: true
@@ -319,7 +342,10 @@ paths:
     get:
       operationId: listar_vehiculos
       summary: Listar todos los vehículos
-      description: Obtiene todos los vehículos registrados, junto con sus imágenes y detalles.
+      description: >
+        Obtiene todos los vehículos registrados. Devuelve datos livianos
+        de cada uno (id, patente, marca, modelo, póliza), sin imágenes ni
+        detalles: para eso, usar obtener_vehiculo_por_id.
       responses:
         "200":
           description: Lista de vehículos.
@@ -467,6 +493,8 @@ paths:
       description: >
         Busca vehículos visualmente similares a partir de una imagen.
         Los resultados son por similitud, nunca una identificación definitiva.
+        Cada match trae datos livianos del vehículo (sin imágenes ni
+        detalles); para el detalle completo, usar obtener_vehiculo_por_id.
       requestBody:
         required: true
         content:
@@ -495,6 +523,8 @@ paths:
       description: >
         Busca vehículos que se parezcan visual o semánticamente a una
         descripción en lenguaje natural (no es búsqueda por filtros exactos).
+        Cada match trae datos livianos del vehículo (sin imágenes ni
+        detalles); para el detalle completo, usar obtener_vehiculo_por_id.
       requestBody:
         required: true
         content:
@@ -524,7 +554,10 @@ paths:
       description: >
         Traduce una consulta en lenguaje natural a filtros exactos
         (marca, modelo, color, año, póliza, patente, sector, tipo de daño)
-        y consulta directamente contra la base de datos.
+        y consulta directamente contra la base de datos. Puede devolver
+        varios vehículos, así que cada uno trae datos livianos (sin
+        imágenes ni detalles); para el detalle completo, usar
+        obtener_vehiculo_por_id.
       requestBody:
         required: true
         content:

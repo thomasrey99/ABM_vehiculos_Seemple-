@@ -32,6 +32,9 @@ from app.modules.vehicles.schemas.update_vehicle_request import (
     UpdateVehicleRequest,
 )
 from app.modules.vehicles.schemas.vehicle_response import VehicleResponse
+from app.modules.vehicles.schemas.vehicle_summary_response import (
+    VehicleSummaryResponse,
+)
 from app.modules.vehicles.schemas.vehicle_search_response import (
     MatchedImageResponse,
     VehicleSearchMatchResponse,
@@ -221,13 +224,17 @@ class VehicleService:
     async def search_by_filters(
         self,
         text: str,
-    ) -> tuple[VehicleFilterQuery, list[VehicleResponse]]:
+    ) -> tuple[VehicleFilterQuery, list[VehicleSummaryResponse]]:
         """
         Traduce una consulta en lenguaje natural a filtros estructurados
         (vía IA) y busca los vehículos que los cumplen. Devuelve tanto
         los filtros aplicados (para transparencia con el cliente, así
         puede corregir si la IA interpretó algo mal) como los vehículos
         encontrados.
+
+        Puede devolver varios vehículos, así que se usa la versión
+        liviana (VehicleSummaryResponse, sin imágenes) para no generar
+        respuestas gigantes.
         """
 
         if not text or not text.strip():
@@ -238,7 +245,7 @@ class VehicleService:
         vehicles = await self.vehicle_repository.search_by_filters(filters)
 
         return filters, [
-            VehicleResponse.model_validate(vehicle) for vehicle in vehicles
+            VehicleSummaryResponse.model_validate(vehicle) for vehicle in vehicles
         ]
 
     async def _validate_license_plate(
@@ -481,11 +488,19 @@ class VehicleService:
 
     async def get_all(
         self,
-    ) -> list[VehicleResponse]:
+    ) -> list[VehicleSummaryResponse]:
+        """
+        Devuelve TODOS los vehículos registrados. Como puede haber muchos
+        (y cada uno trae potencialmente varias imágenes), se usa la
+        versión liviana (VehicleSummaryResponse) para evitar respuestas
+        enormes. Para el detalle completo de uno puntual, usar get_by_id.
+        """
 
         vehicles = await self.vehicle_repository.get_all()
 
-        return [VehicleResponse.model_validate(vehicle) for vehicle in vehicles]
+        return [
+            VehicleSummaryResponse.model_validate(vehicle) for vehicle in vehicles
+        ]
 
     async def update(
         self,
@@ -855,7 +870,7 @@ class VehicleService:
 
             matches.append(
                 VehicleSearchMatchResponse(
-                    vehicle=VehicleResponse.model_validate(vehicle),
+                    vehicle=VehicleSummaryResponse.model_validate(vehicle),
                     score=best_score,
                     matched_images=[
                         MatchedImageResponse(
