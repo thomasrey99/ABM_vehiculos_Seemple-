@@ -392,6 +392,12 @@ paths:
     get:
       operationId: obtener_vehiculo_por_id
       summary: Obtener un vehículo por su ID
+      description: >
+        Devuelve el vehículo completo (incluyendo imágenes y sus detalles),
+        a partir de su `id`. Usar este endpoint cuando ya se tiene el `id`
+        de un vehículo puntual, por ejemplo tras listar_vehiculos,
+        buscar_vehiculo_por_filtros o cualquiera de las búsquedas por
+        similitud, que devuelven datos livianos sin imágenes.
       parameters:
         - name: vehicle_id
           in: path
