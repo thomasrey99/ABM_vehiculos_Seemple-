@@ -7,7 +7,7 @@ info:
     vehicular en watsonx Orchestrate.
   version: "1.0.0"
 servers:
-  - url: https://abm-backend-74934092886.southamerica-east1.run.app/vehicles
+  - url: https://abm-backend-74934092886.southamerica-east1.run.app
     description: Reemplazar por la URL real del backend desplegado.
 
 security:
@@ -338,7 +338,7 @@ components:
           type: boolean
 
 paths:
-  /:
+  /vehicles:
     get:
       operationId: listar_vehiculos
       summary: Listar todos los vehículos
@@ -388,7 +388,7 @@ paths:
         "409":
           description: La patente ya existe.
 
-  /{vehicle_id}:
+  /vehicles/{vehicle_id}:
     get:
       operationId: obtener_vehiculo_por_id
       summary: Obtener un vehículo por su ID
@@ -471,7 +471,7 @@ paths:
         "500":
           description: Falló la eliminación de vectores o archivos externos; el vehículo no se borró.
 
-  /patente/{license_plate}:
+  /vehicles/patente/{license_plate}:
     get:
       operationId: obtener_vehiculo_por_patente
       summary: Obtener un vehículo por su patente
@@ -492,7 +492,7 @@ paths:
         "404":
           description: No existe ningún vehículo con esa patente.
 
-  /search/image:
+  /vehicles/search/image:
     post:
       operationId: buscar_vehiculo_por_imagen
       summary: Buscar vehículos por similitud visual
@@ -522,7 +522,7 @@ paths:
         "500":
           description: Falló la búsqueda vectorial en el servicio de reconocimiento.
 
-  /search/text:
+  /vehicles/search/text:
     post:
       operationId: buscar_vehiculo_por_texto_semantico
       summary: Búsqueda semántica híbrida por texto
@@ -553,7 +553,7 @@ paths:
         "500":
           description: Falló la búsqueda híbrida en el servicio de reconocimiento.
 
-  /search/filters:
+  /vehicles/search/filters:
     post:
       operationId: buscar_vehiculo_por_filtros
       summary: Búsqueda estructurada por filtros exactos
@@ -586,7 +586,7 @@ paths:
         "400":
           description: El texto viene vacío.
 
-  /{vehicle_id}/images/{image_id}/label:
+  /vehicles/{vehicle_id}/images/{image_id}/label:
     patch:
       operationId: actualizar_sector_imagen
       summary: Cambiar el sector (label) de una imagen
@@ -626,7 +626,7 @@ paths:
         "404":
           description: La imagen no existe o no pertenece al vehículo indicado.
 
-  /{vehicle_id}/images/{image_id}/file:
+  /vehicles/{vehicle_id}/images/{image_id}/file:
     patch:
       operationId: reemplazar_archivo_imagen
       summary: Reemplazar el archivo de una imagen
